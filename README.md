@@ -19,4 +19,4 @@ then, you can ls, touch, cp, rm, cat file or directory under `/Users/mbl/fusefs`
 
 # Notice
 
-** There are a lot of reference from Alluxio fuse. **
+**There are a lot of reference from Alluxio fuse.**
