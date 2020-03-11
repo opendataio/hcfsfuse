@@ -279,11 +279,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       }
     } catch (Throwable t) {
       log.error("Failed to read file {}", path, t);
-      if (t instanceof IOException) {
-        return -ErrorCodes.EIO();
-      } else {
-        return -ErrorCodes.EBADMSG();
-      }
+      return HCFSFuseUtil.getErrorCode(t);
     }
 
     return nread;
@@ -453,11 +449,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       return -ErrorCodes.EEXIST();
     } catch (Throwable t) {
       log.error("Failed to rename {} to {}", oldPath, newPath, t);
-      if (t instanceof IOException) {
-        return -ErrorCodes.EIO();
-      } else {
-        return -ErrorCodes.EBADMSG();
-      }
+      return HCFSFuseUtil.getErrorCode(t);
     }
 
     return 0;
@@ -571,11 +563,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
       log.error("Failed to remove {}", path, t);
-      if (t instanceof IOException) {
-        return -ErrorCodes.EIO();
-      } else {
-        return -ErrorCodes.EBADMSG();
-      }
+      return HCFSFuseUtil.getErrorCode(t);
     }
 
     return 0;

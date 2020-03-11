@@ -12,5 +12,11 @@ $ mvn clean package
 # how to run
 
 ```bash
-$ -config=core-site.xml -m /Users/mbl/fusefs -r file:///tmp/
+$ java -jar target/hcfsfuse-1.0.0-SNAPSHOT-jar-with-dependencies.jar -config=core-site.xml -m /Users/mbl/fusefs -r file:///tmp/
 ```
+
+then, you can ls, touch, cp, rm, cat file or directory under `/Users/mbl/fusefs`.
+
+# Notice
+
+** There are a lot of reference from Alluxio fuse. **
