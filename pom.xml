@@ -6,7 +6,6 @@
 
   <groupId>net.mbl</groupId>
   <artifactId>hcfsfuse</artifactId>
-  <packaging>pom</packaging>
   <version>1.0.0-SNAPSHOT</version>
 
   <properties>
@@ -31,7 +30,6 @@
 
     <!-- Test package version -->
     <version.mock>1.38</version.mock>
-    <jacoco.version>0.8.5</jacoco.version>
   </properties>
 
   <repositories>
@@ -359,13 +357,6 @@
     </dependency>
   </dependencies>
   <build>
-    <extensions>
-      <extension>
-        <groupId>kr.motd.maven</groupId>
-        <artifactId>os-maven-plugin</artifactId>
-        <version>1.4.1.Final</version>
-      </extension>
-    </extensions>
     <pluginManagement>
       <plugins>
         <plugin>
@@ -398,17 +389,7 @@
               -javaagent:${settings.localRepository}/org/jmockit/jmockit/${version.mock}/jmockit-${version.mock}.jar
             </argLine>
             <systemPropertyVariables>
-              <jacoco-agent.append>true</jacoco-agent.append>
-              <jacoco-agent.destfile>${basedir}/target/jacoco.exec</jacoco-agent.destfile>
             </systemPropertyVariables>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>versions-maven-plugin</artifactId>
-          <version>2.3</version>
-          <configuration>
-            <generateBackupPoms>false</generateBackupPoms>
           </configuration>
         </plugin>
         <plugin>
@@ -477,57 +458,6 @@
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-enforcer-plugin</artifactId>
-          <version>1.4</version>
-
-          <dependencies>
-            <dependency>
-              <groupId>org.codehaus.mojo</groupId>
-              <artifactId>extra-enforcer-rules</artifactId>
-              <version>1.2</version>
-            </dependency>
-          </dependencies>
-          <executions>
-            <execution>
-              <id>enforce</id>
-              <goals>
-                <goal>enforce</goal>
-              </goals>
-            </execution>
-          </executions>
-          <configuration>
-            <rules>
-              <dependencyConvergence/>
-              <bannedDependencies>
-                <searchTransitive>true</searchTransitive>
-                <message>some dependency must exclude</message>
-              </bannedDependencies>
-              <banDuplicateClasses>
-                <ignoreClasses>
-                  <ignoreClass>javax.*</ignoreClass>
-                  <ignoreClass>org.junit.*</ignoreClass>
-                  <ignoreClass>junit.*</ignoreClass>
-                  <ignoreClass>org.apache.xbean.recipe.*</ignoreClass>
-                  <ignoreClass>org.hamcrest.*</ignoreClass>
-                  <ignoreClass>org.slf4j.*</ignoreClass>
-                  <ignoreClass>org.antlr.runtime.*</ignoreClass>
-                  <ignoreClass>org.apache.commons.lang.*</ignoreClass>
-                  <ignoreClass>org.apache.commons.codec.*</ignoreClass>
-                  <ignoreClass>org.apache.commons.logging.*</ignoreClass>
-                  <ignoreClass>org.codehaus.plexus.component.builder.*</ignoreClass>
-                </ignoreClasses>
-                <findAllDuplicates>true</findAllDuplicates>
-              </banDuplicateClasses>
-            </rules>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-antrun-plugin</artifactId>
-          <version>1.8</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
           <version>${maven-jar-plugin.version}</version>
         </plugin>
@@ -535,68 +465,6 @@
           <groupId>org.springframework.boot</groupId>
           <artifactId>spring-boot-maven-plugin</artifactId>
           <version>1.2.0.RELEASE</version>
-        </plugin>
-        <plugin>
-          <groupId>pl.project13.maven</groupId>
-          <artifactId>git-commit-id-plugin</artifactId>
-          <version>3.0.1</version>
-          <executions>
-            <execution>
-              <goals>
-                <goal>revision</goal>
-              </goals>
-            </execution>
-          </executions>
-          <configuration>
-            <verbose>false</verbose>
-            <generateGitPropertiesFile>false</generateGitPropertiesFile>
-            <injectAllReactorProjects>false</injectAllReactorProjects>
-            <validationShouldFailIfNoMatch>false</validationShouldFailIfNoMatch>
-            <failOnNoGitDirectory>false</failOnNoGitDirectory>
-            <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
-          </configuration>
-        </plugin>
-
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>templating-maven-plugin</artifactId>
-          <version>1.0.0</version>
-          <executions>
-            <execution>
-              <id>filter-src</id>
-              <goals>
-                <goal>filter-sources</goal>
-              </goals>
-              <configuration>
-                <sourceDirectory>${basedir}/src/main/java-templates</sourceDirectory>
-                <outputDirectory>${project.build.directory}/generated-sources/java-templates
-                </outputDirectory>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>flatten-maven-plugin</artifactId>
-          <version>1.1.0</version>
-          <configuration>
-            <flattenMode>ossrh</flattenMode>
-            <updatePomFile>true</updatePomFile>
-          </configuration>
-          <executions>
-            <execution>
-              <id>flatten</id>
-              <phase>process-resources</phase>
-              <goals>
-                <goal>flatten</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
-        <plugin>
-          <groupId>org.jacoco</groupId>
-          <artifactId>jacoco-maven-plugin</artifactId>
-          <version>${jacoco.version}</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -615,93 +483,29 @@
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-enforcer-plugin</artifactId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Main-Class>net.mbl.hcfsfuse.HCFSFuse</Main-Class>
+            </manifestEntries>
+          </archive>
+        </configuration>
       </plugin>
       <plugin>
-        <groupId>pl.project13.maven</groupId>
-        <artifactId>git-commit-id-plugin</artifactId>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>templating-maven-plugin</artifactId>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <classifier>jar-with-dependencies</classifier>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
   </build>
-
-  <profiles>
-    <profile>
-      <id>jacoco</id>
-      <dependencies>
-        <dependency>
-          <!-- to use instrument, jacoco must be on the classpath -->
-          <groupId>org.jacoco</groupId>
-          <artifactId>org.jacoco.agent</artifactId>
-          <classifier>runtime</classifier>
-          <scope>test</scope>
-        </dependency>
-      </dependencies>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.jacoco</groupId>
-            <artifactId>jacoco-maven-plugin</artifactId>
-            <configuration>
-              <!--
-                  Append all coverage data into a single .exec file, so the reports include
-                  integration test results. The report generation should happen in a separate,
-                  later stage, so the coverage data is complete with the results of all the tests
-                  in the project.
-               -->
-              <append>true</append>
-              <destFile>${basedir}/target</destFile>
-            </configuration>
-            <executions>
-              <execution>
-                <!-- offline instrumentation is required, for jacoco to work with powermock tests -->
-                <id>jacoco-unit-instrument-classes</id>
-                <goals>
-                  <goal>instrument</goal>
-                </goals>
-              </execution>
-              <execution>
-                <!-- offline instrumentation is required, for jacoco to work with powermock tests -->
-                <id>jacoco-unit-restore-instrumented-classes</id>
-                <phase>test</phase>
-                <goals>
-                  <goal>restore-instrumented-classes</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <profile>
-      <id>jacocoReport</id>
-      <!--
-          This profile depends on the generated coverage data from the jacoco profile (test phase).
-          This should be run as a separate step, since the generated coverage data should include
-          the results from all the tests in the project.
-       -->
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.jacoco</groupId>
-            <artifactId>jacoco-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>jacoco-coverage-report</id>
-                <goals>
-                  <goal>report</goal>
-                </goals>
-                <configuration>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>
