@@ -27,6 +27,8 @@
     <log4j.version>2.5</log4j.version>
 
     <hadoop.version>3.2.1</hadoop.version>
+    <netty.version>4.1.30.Final</netty.version>
+    <protobuf.version>3.11.0</protobuf.version>
 
     <!-- Test package version -->
     <version.mock>1.38</version.mock>
@@ -50,6 +52,16 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${protobuf.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-all</artifactId>
+        <version>${netty.version}</version>
+      </dependency>
       <dependency>
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>
@@ -105,7 +117,7 @@
       <dependency>
         <groupId>org.alluxio</groupId>
         <artifactId>alluxio-core-base</artifactId>
-        <version>2.1.0</version>
+        <version>2.2.0</version>
         <exclusions>
           <exclusion>
             <artifactId>guava</artifactId>
@@ -115,12 +127,43 @@
       </dependency>
       <dependency>
         <groupId>org.alluxio</groupId>
+        <artifactId>alluxio-core-client-hdfs</artifactId>
+        <version>2.2.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.alluxio</groupId>
         <artifactId>alluxio-core-common</artifactId>
-        <version>2.1.0</version>
+        <version>2.2.0</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <dependency>
+      <groupId>org.alluxio</groupId>
+      <artifactId>alluxio-core-client-hdfs</artifactId>
+      <exclusions>
+        <exclusion>
+          <artifactId>log4j</artifactId>
+          <groupId>log4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hadoop-annotations</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-api</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-log4j12</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>protobuf-java</artifactId>
+          <groupId>com.google.protobuf</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>org.alluxio</groupId>
       <artifactId>alluxio-core-base</artifactId>
@@ -130,32 +173,8 @@
           <groupId>com.fasterxml.jackson.core</groupId>
         </exclusion>
         <exclusion>
-          <artifactId>grpc-core</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>protobuf-java</artifactId>
-          <groupId>com.google.protobuf</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>commons-lang3</artifactId>
-          <groupId>org.apache.commons</groupId>
-        </exclusion>
-        <exclusion>
           <artifactId>slf4j-log4j12</artifactId>
           <groupId>org.slf4j</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>grpc-netty</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>grpc-protobuf</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>grpc-stub</artifactId>
-          <groupId>io.grpc</groupId>
         </exclusion>
         <exclusion>
           <artifactId>slf4j-api</artifactId>
@@ -172,18 +191,6 @@
           <groupId>org.apache.zookeeper</groupId>
         </exclusion>
         <exclusion>
-          <artifactId>grpc-core</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>grpc-netty</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>grpc-stub</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
           <artifactId>metrics-core</artifactId>
           <groupId>io.dropwizard.metrics</groupId>
         </exclusion>
@@ -193,10 +200,6 @@
         </exclusion>
         <exclusion>
           <artifactId>metrics-json</artifactId>
-          <groupId>io.dropwizard.metrics</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>metrics-jvm</artifactId>
           <groupId>io.dropwizard.metrics</groupId>
         </exclusion>
         <exclusion>
@@ -210,6 +213,10 @@
         <exclusion>
           <artifactId>slf4j-log4j12</artifactId>
           <groupId>org.slf4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-codec</artifactId>
+          <groupId>commons-codec</groupId>
         </exclusion>
       </exclusions>
     </dependency>
@@ -240,6 +247,16 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
+      <exclusions>
+        <exclusion>
+          <artifactId>error_prone_annotations</artifactId>
+          <groupId>com.google.errorprone</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>animal-sniffer-annotations</artifactId>
+          <groupId>org.codehaus.mojo</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>commons-cli</groupId>
@@ -252,10 +269,6 @@
         <exclusion>
           <artifactId>nimbus-jose-jwt</artifactId>
           <groupId>com.nimbusds</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>commons-codec</artifactId>
-          <groupId>commons-codec</groupId>
         </exclusion>
         <exclusion>
           <artifactId>commons-io</artifactId>
@@ -345,6 +358,26 @@
           <artifactId>curator-recipes</artifactId>
           <groupId>org.apache.curator</groupId>
         </exclusion>
+        <exclusion>
+          <artifactId>jackson-annotations</artifactId>
+          <groupId>com.fasterxml.jackson.core</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jsr305</artifactId>
+          <groupId>com.google.code.findbugs</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>gson</artifactId>
+          <groupId>com.google.code.gson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-codec</artifactId>
+          <groupId>commons-codec</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-lang3</artifactId>
+          <groupId>org.apache.commons</groupId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -354,6 +387,10 @@
     <dependency>
       <groupId>commons-logging</groupId>
       <artifactId>commons-logging</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
     </dependency>
   </dependencies>
   <build>

@@ -108,6 +108,9 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     } catch (IOException e) {
       log.debug("Failed to get info of {}, path does not exist or is invalid", path);
       return -ErrorCodes.ENOENT();
+    } catch (Throwable t) {
+      log.error("Failed to get info of {}, unexpected exception", path, t);
+      throw t;
     }
 
     return res;
