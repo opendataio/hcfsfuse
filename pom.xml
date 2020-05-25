@@ -27,7 +27,7 @@
     <log4j.version>2.5</log4j.version>
 
     <hadoop.version>3.2.1</hadoop.version>
-
+    <ozone.version>0.6.0-SNAPSHOT</ozone.version>
     <!-- Test package version -->
     <version.mock>1.38</version.mock>
   </properties>
@@ -117,6 +117,16 @@
         <groupId>org.alluxio</groupId>
         <artifactId>alluxio-core-common</artifactId>
         <version>2.1.0</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-ozone-client</artifactId>
+        <version>${ozone.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-ozone-filesystem</artifactId>
+        <version>${ozone.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -346,6 +356,14 @@
           <groupId>org.apache.curator</groupId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-ozone-client</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-ozone-filesystem</artifactId>
     </dependency>
     <dependency>
       <groupId>org.projectlombok</groupId>

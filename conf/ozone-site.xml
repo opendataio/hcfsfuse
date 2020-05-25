@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+<!-- Put site-specific property overrides in this file. -->
+
+<configuration>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>o3fs://mybucket.myvol/</value>
+  </property>
+  <property>
+    <name>fs.o3fs.impl</name>
+    <value>org.apache.hadoop.fs.ozone.BasicOzoneFileSystem</value>
+  </property>
+  <property>
+    <name>fs.AbstractFileSystem.o3fs.impl</name>
+    <value>org.apache.hadoop.fs.ozone.BasicOzFs</value>
+  </property>
+  <property>
+    <name>ozone.scm.names</name>
+    <value>localhost</value>
+  </property>
+  <property>
+    <name>ozone.replication</name>
+    <value>3</value>
+  </property>
+  <property>
+    <name>ozone.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>ozone.acl.enabled</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>dfs.ratis.client.request.max.retries</name>
+    <value>60</value>
+  </property>
+  <property>
+    <name>ozone.scm.chunk.size</name>
+    <value>4MB</value>
+  </property>
+
+  <property>
+    <name>scm.container.client.max.size</name>
+    <value>256</value>
+  </property>
+  <property>
+    <name>scm.container.client.idle.threshold</name>
+    <value>10s</value>
+  </property>
+  <property>
+    <name>hdds.ratis.raft.client.async.outstanding-requests.max</name>
+    <value>32</value>
+  </property>
+  <property>
+    <name>hdds.ratis.raft.client.rpc.request.timeout</name>
+    <value>60s</value>
+  </property>
+  <property>
+    <name>hdds.ratis.raft.client.rpc.watch.request.timeout</name>
+    <value>180s</value>
+  </property>
+  <property>
+    <name>ozone.fs.isolated-classloader</name>
+    <value>false</value>
+  </property>
+</configuration>
