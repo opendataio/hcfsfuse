@@ -16,5 +16,5 @@ public class FuseOptions {
   private final String root;
   private final boolean debug;
   private final List<String> fuseOpts;
-  private final String confPath;
+  private final String[] confPaths;
 }

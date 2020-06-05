@@ -8,7 +8,6 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -40,8 +39,8 @@ public class HCFSFuse {
       System.exit(1);
     }
     Configuration conf = new Configuration();
-    if (StringUtils.isNotBlank(opts.getConfPath())) {
-      conf.addResource(new Path(opts.getConfPath()));
+    for (String confPath : opts.getConfPaths()) {
+      conf.addResource(new Path(confPath));
     }
 
     final FileSystem tfs = new Path(opts.getRoot()).getFileSystem(conf);
@@ -64,11 +63,11 @@ public class HCFSFuse {
   private static FuseOptions parseOptions(String[] args) {
     final Options opts = new Options();
     final Option configOpt =
-        Option.builder("config")
+        Option.builder("c")
             .longOpt("config")
             .required(false)
             .hasArg(true)
-            .desc("config file.")
+            .desc("config files.")
             .build();
     final Option mntPoint = Option.builder("m")
         .hasArg()
@@ -119,9 +118,11 @@ public class HCFSFuse {
         return null;
       }
 
-      String configFile = "";
+      String[] configFiles;
       if (cli.hasOption("config")) {
-        configFile = cli.getOptionValue(configOpt.getOpt());
+        configFiles = cli.getOptionValues(configOpt.getOpt());
+      } else {
+        configFiles = new String[0];
       }
 
       String mntPointValue = cli.getOptionValue("m");
@@ -140,7 +141,7 @@ public class HCFSFuse {
       if (cli.hasOption("debug")) {
         fuseDebug = true;
       }
-      return new FuseOptions(mntPointValue, rootValue, fuseDebug, fuseOpts, configFile);
+      return new FuseOptions(mntPointValue, rootValue, fuseDebug, fuseOpts, configFiles);
     } catch (ParseException e) {
       System.err.println("Error while parsing CLI: " + e.getMessage());
       final HelpFormatter fmt = new HelpFormatter();
