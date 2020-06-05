@@ -98,13 +98,23 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     try {
       FileStatus status = mFileSystem.getFileStatus(turi);
       stat.st_size.set(status.getLen());
-      int mode = 00777;
+      int mode = status.getPermission().toShort();
       if (status.isDirectory()) {
         mode |= FileStat.S_IFDIR;
       } else {
         mode |= FileStat.S_IFREG;
       }
       stat.st_mode.set(mode);
+      final long ctime_sec = status.getModificationTime() / 1000;
+      // Keeps only the "residual" nanoseconds not caputred in citme_sec
+      final long ctime_nsec = (status.getModificationTime() % 1000) * 1000;
+
+      stat.st_ctim.tv_sec.set(ctime_sec);
+      stat.st_ctim.tv_nsec.set(ctime_nsec);
+      stat.st_mtim.tv_sec.set(ctime_sec);
+      stat.st_mtim.tv_nsec.set(ctime_nsec);
+      stat.st_uid.set(HCFSFuseUtil.getUid(status.getOwner()));
+      stat.st_gid.set(HCFSFuseUtil.getGidFromGroupName(status.getGroup()));
     } catch (IOException e) {
       log.debug("Failed to get info of {}, path does not exist or is invalid", path);
       return -ErrorCodes.ENOENT();
@@ -545,6 +555,25 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   public int rmdir(String path) {
     log.trace("rmdir({})", path);
     return rmInternal(path);
+  }
+
+  /**
+   * Changes the mode of a remote file.
+   *
+   * @param path the path of the file
+   * @param mode the mode to change to
+   * @return 0 on success, a negative value on error
+   */
+  @Override
+  public int chmod(String path, @mode_t long mode) {
+    final Path turi = mPathResolverCache.getUnchecked(path);
+    try {
+      mFileSystem.setPermission(turi, new FsPermission((int) mode));
+    } catch (IOException e) {
+      log.error("Failed to chmod {}", path, e);
+      return HCFSFuseUtil.getErrorCode(e);
+    }
+    return 0;
   }
 
   /**

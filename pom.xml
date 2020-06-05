@@ -26,6 +26,7 @@
     <maven-jar-plugin.version>2.5</maven-jar-plugin.version>
     <log4j.version>2.5</log4j.version>
 
+    <alluxio.version>2.1.0</alluxio.version>
     <hadoop.version>3.2.1</hadoop.version>
     <ozone.version>0.6.0-SNAPSHOT</ozone.version>
     <!-- Test package version -->
@@ -105,7 +106,7 @@
       <dependency>
         <groupId>org.alluxio</groupId>
         <artifactId>alluxio-core-base</artifactId>
-        <version>2.1.0</version>
+        <version>${alluxio.version}</version>
         <exclusions>
           <exclusion>
             <artifactId>guava</artifactId>
@@ -116,7 +117,7 @@
       <dependency>
         <groupId>org.alluxio</groupId>
         <artifactId>alluxio-core-common</artifactId>
-        <version>2.1.0</version>
+        <version>${alluxio.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.hadoop</groupId>
