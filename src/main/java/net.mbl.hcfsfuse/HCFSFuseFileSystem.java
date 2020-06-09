@@ -256,43 +256,45 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       log.error("Cannot read more than Integer.MAX_VALUE");
       return -ErrorCodes.EINVAL();
     }
-    log.trace("read({}, {}, {})", path, size, offset);
-    final int sz = (int) size;
-    final long fd = fi.fh.get();
-    OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
-    if (oe == null) {
-      log.error("Cannot find fd for {} in table", path);
-      return -ErrorCodes.EBADFD();
-    }
+    synchronized(this) {
+      log.trace("read({}, {}, {})", path, size, offset);
+      final int sz = (int) size;
+      final long fd = fi.fh.get();
+      OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
+      if (oe == null) {
+        log.error("Cannot find fd for {} in table", path);
+        return -ErrorCodes.EBADFD();
+      }
 
-    int rd = 0;
-    int nread = 0;
-    if (oe.getIn() == null) {
-      log.error("{} was not open for reading", path);
-      return -ErrorCodes.EBADFD();
-    }
-    try {
-      oe.getIn().seek(offset);
-      final byte[] dest = new byte[sz];
-      while (rd >= 0 && nread < size) {
-        rd = oe.getIn().read(dest, nread, sz - nread);
-        if (rd >= 0) {
-          nread += rd;
+      int rd = 0;
+      int nread = 0;
+      if (oe.getIn() == null) {
+        log.error("{} was not open for reading", path);
+        return -ErrorCodes.EBADFD();
+      }
+      try {
+        oe.getIn().seek(offset);
+        final byte[] dest = new byte[sz];
+        while (rd >= 0 && nread < size) {
+          rd = oe.getIn().read(dest, nread, sz - nread);
+          if (rd >= 0) {
+            nread += rd;
+          }
         }
+
+        // EOF
+        if (nread == -1) {
+          nread = 0;
+        } else if (nread > 0) {
+          buf.put(0, dest, 0, nread);
+        }
+      } catch (Throwable t) {
+        log.error("Failed to read file {}", path, t);
+        return HCFSFuseUtil.getErrorCode(t);
       }
 
-      // EOF
-      if (nread == -1) {
-        nread = 0;
-      } else if (nread > 0) {
-        buf.put(0, dest, 0, nread);
-      }
-    } catch (Throwable t) {
-      log.error("Failed to read file {}", path, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return nread;
     }
-
-    return nread;
   }
 
   /**
