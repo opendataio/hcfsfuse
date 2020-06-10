@@ -3,7 +3,8 @@ package net.mbl.hcfsfuse;
 import alluxio.util.OSUtils;
 import alluxio.util.ShellUtils;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.serce.jnrfuse.ErrorCodes;
 
 import java.io.IOException;
@@ -11,8 +12,9 @@ import java.io.IOException;
 /**
  * Utility methods for Hcfs-FUSE.
  */
-@Slf4j
 public class HCFSFuseUtil {
+  public static final Logger LOG =
+      LoggerFactory.getLogger(HCFSFuseUtil.class);
 
   /**
    * Retrieves the uid of the given user.
@@ -53,7 +55,7 @@ public class HCFSFuseUtil {
     try {
       return Long.parseLong(result);
     } catch (NumberFormatException e) {
-      log.error("Failed to get gid from group name {}.", groupName);
+      LOG.error("Failed to get gid from group name {}.", groupName);
       return -1;
     }
   }
@@ -70,7 +72,7 @@ public class HCFSFuseUtil {
     try {
       output = ShellUtils.execCommand("id", option, username).trim();
     } catch (IOException e) {
-      log.error("Failed to get id from {} with option {}", username, option);
+      LOG.error("Failed to get id from {} with option {}", username, option);
       return -1;
     }
     return Long.parseLong(output);

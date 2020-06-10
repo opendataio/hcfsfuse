@@ -1,6 +1,5 @@
 package net.mbl.hcfsfuse;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -11,6 +10,8 @@ import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.serce.jnrfuse.FuseException;
 
 import java.io.IOException;
@@ -21,10 +22,11 @@ import java.util.List;
 /**
  * Main entry point to HCFS-FUSE.
  */
-@Slf4j
 public class HCFSFuse {
+  public static final Logger LOG =
+      LoggerFactory.getLogger(HCFSFuse.class);
 
-    /**
+   /**
    * Running this class will mount the file system according to
    * the options passed to this function {@link #parseOptions(String[])}.
    * The user-space fuse application will stay on the foreground and keep
@@ -50,7 +52,7 @@ public class HCFSFuse {
       fs.mount(Paths.get(opts.getMountPoint()), true, opts.isDebug(),
           fuseOpts.toArray(new String[0]));
     } catch (FuseException e) {
-      log.error("Failed to mount {}", opts.getMountPoint(), e);
+      LOG.error("Failed to mount {}", opts.getMountPoint(), e);
       // only try to umount file system when exception occurred.
       // jnr-fuse registers JVM shutdown hook to ensure fs.umount()
       // will be executed when this process is exiting.

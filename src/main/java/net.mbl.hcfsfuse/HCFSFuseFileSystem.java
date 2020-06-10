@@ -11,7 +11,6 @@ import jnr.ffi.Pointer;
 import jnr.ffi.types.mode_t;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -20,6 +19,8 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.serce.jnrfuse.ErrorCodes;
 import ru.serce.jnrfuse.FuseFillDir;
 import ru.serce.jnrfuse.FuseStubFS;
@@ -38,8 +39,9 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * Implements the FUSE callbacks defined by jnr-fuse.
  */
-@Slf4j
 public class HCFSFuseFileSystem extends FuseStubFS {
+  public static final Logger LOG =
+      LoggerFactory.getLogger(HCFSFuseFileSystem.class);
 
   private static final int MAX_OPEN_FILES = Integer.MAX_VALUE;
   private static final int MAX_OPEN_WAITTIME_MS = 5000;
@@ -116,7 +118,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       stat.st_uid.set(HCFSFuseUtil.getUid(status.getOwner()));
       stat.st_gid.set(HCFSFuseUtil.getGidFromGroupName(status.getGroup()));
     } catch (IOException e) {
-      log.debug("Failed to get info of {}, path does not exist or is invalid", path);
+      LOG.debug("Failed to get info of {}, path does not exist or is invalid", path);
       return -ErrorCodes.ENOENT();
     }
 
@@ -137,7 +139,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   public int readdir(String path, Pointer buff, FuseFillDir filter,
       @off_t long offset, FuseFileInfo fi) {
     final Path turi = mPathResolverCache.getUnchecked(path);
-    log.trace("readdir({}) [target: {}]", path, turi);
+    LOG.trace("readdir({}) [target: {}]", path, turi);
 
     try {
       final FileStatus[] ls = mFileSystem.listStatus(turi);
@@ -149,10 +151,10 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         filter.apply(buff, file.getPath().getName(), null, 0);
       }
     } catch (FileNotFoundException | InvalidPathException e) {
-      log.debug("Failed to read directory {}, path does not exist or is invalid", path);
+      LOG.debug("Failed to read directory {}, path does not exist or is invalid", path);
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
-      log.error("Failed to read directory {}", path, t);
+      LOG.error("Failed to read directory {}", path, t);
       return -1;
     }
 
@@ -169,9 +171,9 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   @Override
   public int mkdir(String path, @mode_t long mode) {
     final Path turi = mPathResolverCache.getUnchecked(path);
-    log.trace("mkdir({}) [target: {}]", path, turi);
+    LOG.trace("mkdir({}) [target: {}]", path, turi);
     if (turi.getName().length() > MAX_NAME_LENGTH) {
-      log.error("Failed to create directory {}, directory name is longer than {} characters",
+      LOG.error("Failed to create directory {}, directory name is longer than {} characters",
           path, MAX_NAME_LENGTH);
       return -ErrorCodes.ENAMETOOLONG();
     }
@@ -182,25 +184,25 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       String groupName = HCFSFuseUtil.getGroupName(gid);
       if (groupName.isEmpty()) {
         // This should never be reached since input gid is always valid
-        log.error("Failed to get group name from gid {}.", gid);
+        LOG.error("Failed to get group name from gid {}.", gid);
         return -ErrorCodes.EFAULT();
       }
       String userName = HCFSFuseUtil.getUserName(uid);
       if (userName.isEmpty()) {
         // This should never be reached since input uid is always valid
-        log.error("Failed to get user name from uid {}", uid);
+        LOG.error("Failed to get user name from uid {}", uid);
         return -ErrorCodes.EFAULT();
       }
       mFileSystem.mkdirs(turi, new FsPermission((int) mode));
       mFileSystem.setOwner(turi, userName, groupName);
     } catch (FileAlreadyExistsException e) {
-      log.debug("Failed to create directory {}, directory already exists", path);
+      LOG.debug("Failed to create directory {}, directory already exists", path);
       return -ErrorCodes.EEXIST();
     } catch (InvalidPathException e) {
-      log.debug("Failed to create directory {}, path is invalid", path);
+      LOG.debug("Failed to create directory {}, path is invalid", path);
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
-      log.error("Failed to create directory {}", path, t);
+      LOG.error("Failed to create directory {}", path, t);
       return HCFSFuseUtil.getErrorCode(t);
     }
 
@@ -213,16 +215,22 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     // (see {@code man 2 open} for the structure of the flags bitfield)
     // File creation flags are the last two bits of flags
     final int flags = fi.flags.get();
-    log.trace("open({}, 0x{}) [target: {}]", path, Integer.toHexString(flags), turi);
+    LOG.trace("open({}, 0x{}) [target: {}]", path, Integer.toHexString(flags), turi);
     if (mOpenFiles.size() >= MAX_OPEN_FILES) {
-      log.error("Cannot open {}: too many open files (MAX_OPEN_FILES: {})", path, MAX_OPEN_FILES);
+      LOG.error("Cannot open {}: too many open files (MAX_OPEN_FILES: {})", path, MAX_OPEN_FILES);
       return ErrorCodes.EMFILE();
     }
     FSDataInputStream is;
+    FSDataOutputStream out;
     try {
       is = mFileSystem.open(turi);
+      if ((flags & 0b11) != 0) {
+        out = mFileSystem.create(turi);
+      } else {
+        out = null;
+      }
     } catch (Throwable t) {
-      log.error("Failed to open file {}", path, t);
+      LOG.error("Failed to open file {}", path, t);
       if (t instanceof IOException) {
         return -ErrorCodes.EIO();
       } else {
@@ -230,7 +238,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       }
     }
     long fid = mNextOpenFileId.getAndIncrement();
-    mOpenFiles.add(new OpenFileEntry(fid, path, is, null));
+    mOpenFiles.add(new OpenFileEntry(fid, path, is, out));
     fi.fh.set(fid);
 
     return 0;
@@ -253,23 +261,23 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       FuseFileInfo fi) {
 
     if (size > Integer.MAX_VALUE) {
-      log.error("Cannot read more than Integer.MAX_VALUE");
+      LOG.error("Cannot read more than Integer.MAX_VALUE");
       return -ErrorCodes.EINVAL();
     }
-    synchronized(this) {
-      log.trace("read({}, {}, {})", path, size, offset);
+    synchronized (this) {
+      LOG.trace("read({}, {}, {})", path, size, offset);
       final int sz = (int) size;
       final long fd = fi.fh.get();
       OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
       if (oe == null) {
-        log.error("Cannot find fd for {} in table", path);
+        LOG.error("Cannot find fd for {} in table", path);
         return -ErrorCodes.EBADFD();
       }
 
       int rd = 0;
       int nread = 0;
       if (oe.getIn() == null) {
-        log.error("{} was not open for reading", path);
+        LOG.error("{} was not open for reading", path);
         return -ErrorCodes.EBADFD();
       }
       try {
@@ -289,7 +297,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
           buf.put(0, dest, 0, nread);
         }
       } catch (Throwable t) {
-        log.error("Failed to read file {}", path, t);
+        LOG.error("Failed to read file {}", path, t);
         return HCFSFuseUtil.getErrorCode(t);
       }
 
@@ -309,16 +317,16 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   public int create(String path, @mode_t long mode, FuseFileInfo fi) {
     final Path uri = mPathResolverCache.getUnchecked(path);
     final int flags = fi.flags.get();
-    log.trace("create({}, {}) [target: {}]", path, Integer.toHexString(flags), uri);
+    LOG.trace("create({}, {}) [target: {}]", path, Integer.toHexString(flags), uri);
 
     if (uri.getName().length() > MAX_NAME_LENGTH) {
-      log.error("Failed to create {}, file name is longer than {} characters",
+      LOG.error("Failed to create {}, file name is longer than {} characters",
           path, MAX_NAME_LENGTH);
       return -ErrorCodes.ENAMETOOLONG();
     }
     try {
       if (mOpenFiles.size() >= MAX_OPEN_FILES) {
-        log.error("Cannot create {}: too many open files (MAX_OPEN_FILES: {})", path,
+        LOG.error("Cannot create {}: too many open files (MAX_OPEN_FILES: {})", path,
             MAX_OPEN_FILES);
         return -ErrorCodes.EMFILE();
       }
@@ -332,7 +340,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         String groupName = HCFSFuseUtil.getGroupName(gid);
         if (groupName.isEmpty()) {
           // This should never be reached since input gid is always valid
-          log.error("Failed to get group name from gid {}.", gid);
+          LOG.error("Failed to get group name from gid {}.", gid);
           return -ErrorCodes.EFAULT();
         }
         gname = groupName;
@@ -341,7 +349,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         String userName = HCFSFuseUtil.getUserName(uid);
         if (userName.isEmpty()) {
           // This should never be reached since input uid is always valid
-          log.error("Failed to get user name from uid {}", uid);
+          LOG.error("Failed to get user name from uid {}", uid);
           return -ErrorCodes.EFAULT();
         }
         uname = userName;
@@ -351,18 +359,18 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       mOpenFiles.add(new OpenFileEntry(fid, path, null, os));
       fi.fh.set(fid);
       if (gid != GID || uid != UID) {
-        log.debug("Set attributes of path {} to {}, {}", path, gid, uid);
+        LOG.debug("Set attributes of path {} to {}, {}", path, gid, uid);
         mFileSystem.setOwner(uri, uname, gname);
       }
-      log.debug("{} created and opened", path);
+      LOG.debug("{} created and opened", path);
     } catch (FileAlreadyExistsException e) {
-      log.debug("Failed to create {}, file already exists", path);
+      LOG.debug("Failed to create {}, file already exists", path);
       return -ErrorCodes.EEXIST();
     } catch (InvalidPathException e) {
-      log.debug("Failed to create {}, path is invalid", path);
+      LOG.debug("Failed to create {}, path is invalid", path);
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
-      log.error("Failed to create {}", path, t);
+      LOG.error("Failed to create {}", path, t);
       return HCFSFuseUtil.getErrorCode(t);
     }
 
@@ -380,22 +388,22 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @Override
   public int flush(String path, FuseFileInfo fi) {
-    log.trace("flush({})", path);
+    LOG.trace("flush({})", path);
     final long fd = fi.fh.get();
     OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
     if (oe == null) {
-      log.error("Cannot find fd for {} in table", path);
+      LOG.error("Cannot find fd for {} in table", path);
       return -ErrorCodes.EBADFD();
     }
     if (oe.getOut() != null) {
       try {
         oe.getOut().flush();
       } catch (IOException e) {
-        log.error("Failed to flush {}", path, e);
+        LOG.error("Failed to flush {}", path, e);
         return -ErrorCodes.EIO();
       }
     } else {
-      log.debug("Not flushing: {} was not open for writing", path);
+      LOG.debug("Not flushing: {} was not open for writing", path);
     }
     return 0;
   }
@@ -411,19 +419,19 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @Override
   public int release(String path, FuseFileInfo fi) {
-    log.trace("release({})", path);
+    LOG.trace("release({})", path);
     OpenFileEntry oe;
     final long fd = fi.fh.get();
     oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
     mOpenFiles.remove(oe);
     if (oe == null) {
-      log.error("Cannot find fd for {} in table", path);
+      LOG.error("Cannot find fd for {} in table", path);
       return -ErrorCodes.EBADFD();
     }
     try {
       oe.close();
     } catch (IOException e) {
-      log.error("Failed closing {} [in]", path, e);
+      LOG.error("Failed closing {} [in]", path, e);
     }
     return 0;
   }
@@ -440,10 +448,10 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     final Path oldUri = mPathResolverCache.getUnchecked(oldPath);
     final Path newUri = mPathResolverCache.getUnchecked(newPath);
     final String name = newUri.getName();
-    log.trace("rename({}, {}) [target: {}, {}]", oldPath, newPath, oldUri, newUri);
+    LOG.trace("rename({}, {}) [target: {}, {}]", oldPath, newPath, oldUri, newUri);
 
     if (name.length() > MAX_NAME_LENGTH) {
-      log.error("Failed to rename {} to {}, name {} is longer than {} characters",
+      LOG.error("Failed to rename {} to {}, name {} is longer than {} characters",
           oldPath, newPath, name, MAX_NAME_LENGTH);
       return -ErrorCodes.ENAMETOOLONG();
     }
@@ -454,13 +462,13 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         oe.setPath(newPath);
       }
     } catch (FileNotFoundException e) {
-      log.debug("Failed to rename {} to {}, file {} does not exist", oldPath, newPath, oldPath);
+      LOG.debug("Failed to rename {} to {}, file {} does not exist", oldPath, newPath, oldPath);
       return -ErrorCodes.ENOENT();
     } catch (FileAlreadyExistsException e) {
-      log.debug("Failed to rename {} to {}, file {} already exists", oldPath, newPath, newPath);
+      LOG.debug("Failed to rename {} to {}, file {} already exists", oldPath, newPath, newPath);
       return -ErrorCodes.EEXIST();
     } catch (Throwable t) {
-      log.error("Failed to rename {} to {}", oldPath, newPath, t);
+      LOG.error("Failed to rename {} to {}", oldPath, newPath, t);
       return HCFSFuseUtil.getErrorCode(t);
     }
 
@@ -484,20 +492,20 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   public int write(String path, Pointer buf, @size_t long size, @off_t long offset,
       FuseFileInfo fi) {
     if (size > Integer.MAX_VALUE) {
-      log.error("Cannot write more than Integer.MAX_VALUE");
+      LOG.error("Cannot write more than Integer.MAX_VALUE");
       return ErrorCodes.EIO();
     }
-    log.trace("write({}, {}, {})", path, size, offset);
+    LOG.trace("write({}, {}, {})", path, size, offset);
     final int sz = (int) size;
     final long fd = fi.fh.get();
     OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
     if (oe == null) {
-      log.error("Cannot find fd for {} in table", path);
+      LOG.error("Cannot find fd for {} in table", path);
       return -ErrorCodes.EBADFD();
     }
 
     if (oe.getOut() == null) {
-      log.error("{} already exists in target and cannot be overwritten."
+      LOG.error("{} already exists in target and cannot be overwritten."
           + " Please delete this file first.", path);
       return -ErrorCodes.EEXIST();
     }
@@ -513,21 +521,11 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       oe.getOut().write(dest);
       oe.setWriteOffset(offset + size);
     } catch (IOException e) {
-      log.error("IOException while writing to {}.", path, e);
+      LOG.error("IOException while writing to {}.", path, e);
       return -ErrorCodes.EIO();
     }
 
     return sz;
-  }
-
-  /**
-   * Changes the size of a file. This operation would not succeed because of target's write-once
-   * model.
-   */
-  @Override
-  public int truncate(String path, long size) {
-    log.error("Truncate is not supported {}", path);
-    return -ErrorCodes.EOPNOTSUPP();
   }
 
   /**
@@ -538,7 +536,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @Override
   public int unlink(String path) {
-    log.trace("unlink({})", path);
+    LOG.trace("unlink({})", path);
     return rmInternal(path);
   }
 
@@ -555,7 +553,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @Override
   public int rmdir(String path) {
-    log.trace("rmdir({})", path);
+    LOG.trace("rmdir({})", path);
     return rmInternal(path);
   }
 
@@ -572,7 +570,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     try {
       mFileSystem.setPermission(turi, new FsPermission((int) mode));
     } catch (IOException e) {
-      log.error("Failed to chmod {}", path, e);
+      LOG.error("Failed to chmod {}", path, e);
       return HCFSFuseUtil.getErrorCode(e);
     }
     return 0;
@@ -590,13 +588,18 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     try {
       mFileSystem.delete(turi, true);
     } catch (FileNotFoundException | InvalidPathException e) {
-      log.debug("Failed to remove {}, file does not exist or is invalid", path);
+      LOG.debug("Failed to remove {}, file does not exist or is invalid", path);
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
-      log.error("Failed to remove {}", path, t);
+      LOG.error("Failed to remove {}", path, t);
       return HCFSFuseUtil.getErrorCode(t);
     }
 
+    return 0;
+  }
+
+  @Override
+  public int truncate(String path, @off_t long size) {
     return 0;
   }
 
