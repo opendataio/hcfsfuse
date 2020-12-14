@@ -16,7 +16,7 @@ $ mvn clean package
 If you want to specify the version of alluxio, hadoop or ozone, reference the following example.
 
 ```bash
- mvn clean package -Dhadoop.version=3.2.1 -Dozone.version=0.6.0-SNAPSHOT
+ mvn clean package -Dhadoop.version=3.2.1 -Dozone.version=1.0.0
 ```
 
 # how to run

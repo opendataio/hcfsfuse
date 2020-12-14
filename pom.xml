@@ -26,9 +26,9 @@
     <maven-jar-plugin.version>2.5</maven-jar-plugin.version>
     <log4j.version>2.5</log4j.version>
 
-    <alluxio.version>2.1.0</alluxio.version>
+    <alluxio.version>2.4.1</alluxio.version>
     <hadoop.version>3.2.1</hadoop.version>
-    <ozone.version>0.6.0-SNAPSHOT</ozone.version>
+    <ozone.version>1.0.0</ozone.version>
     <!-- Test package version -->
     <version.mock>1.38</version.mock>
   </properties>
