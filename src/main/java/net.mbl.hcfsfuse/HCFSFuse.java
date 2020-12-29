@@ -49,6 +49,7 @@ public class HCFSFuse {
     HCFSFuseFileSystem fs = new HCFSFuseFileSystem(tfs, opts, conf);
     final List<String> fuseOpts = opts.getFuseOpts();
     try {
+      LOG.info("mounting to {}", opts.getMountPoint());
       fs.mount(Paths.get(opts.getMountPoint()), true, opts.isDebug(),
           fuseOpts.toArray(new String[0]));
     } catch (FuseException e) {

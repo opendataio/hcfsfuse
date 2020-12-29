@@ -33,6 +33,10 @@
     <value>org.apache.hadoop.fs.ozone.BasicOzFs</value>
   </property>
   <property>
+    <name>ozone.om.address</name>
+    <value>localhost</value>
+  </property>
+  <property>
     <name>ozone.scm.names</name>
     <value>localhost</value>
   </property>
