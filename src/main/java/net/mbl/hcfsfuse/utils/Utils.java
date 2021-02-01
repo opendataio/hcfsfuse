@@ -25,7 +25,7 @@ public class Utils {
 
   /**
    * Get current thread id.
-   * * @return Long
+   * @return Long
    */
   public static Long getThreadId() {
     try {
