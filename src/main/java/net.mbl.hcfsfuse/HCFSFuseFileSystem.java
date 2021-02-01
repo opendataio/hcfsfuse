@@ -242,10 +242,9 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     mOpenFiles.add(new OpenFileEntry(fid, path, is, out));
     fi.fh.set(fid);
 
-    LOG.debug("Open: " + path
-        + "|ProcessId: " + Utils.getProcessId()
-        + "|ThreadId: " + Utils.getThreadId()
-        + "|fid: " + fid + "|is address: " + System.identityHashCode(is));
+    LOG.debug("Open: {} |ProcessId: {}|ThreadId: {}|fid: {}|is address: {}",
+            path,  Utils.getProcessId(), Utils.getThreadId(), fid,
+            System.identityHashCode(is));
 
     return 0;
   }
