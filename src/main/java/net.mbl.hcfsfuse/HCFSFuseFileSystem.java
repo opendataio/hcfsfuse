@@ -605,22 +605,22 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   
   @Override
   public int setxattr(String path, String name, Pointer value, @size_t long size, int flags) {
-      return 0;
+    return 0;
   }
 
   @Override
   public int getxattr(String path, String name, Pointer value, @size_t long size) {
-      return 0;
+    return 0;
   }
 
   @Override
   public int listxattr(String path, Pointer list, @size_t long size) {
-      return 0;
+    return 0;
   }
 
   @Override
   public int removexattr(String path, String name) {
-      return 0;
+    return 0;
   }
 
   /**
