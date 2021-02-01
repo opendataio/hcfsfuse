@@ -602,7 +602,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   public int truncate(String path, @off_t long size) {
     return 0;
   }
-  
+
   @Override
   public int setxattr(String path, String name, Pointer value, @size_t long size, int flags) {
     return 0;
