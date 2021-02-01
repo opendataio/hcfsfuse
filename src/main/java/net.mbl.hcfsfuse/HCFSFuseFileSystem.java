@@ -11,6 +11,7 @@ import jnr.ffi.Pointer;
 import jnr.ffi.types.mode_t;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
+import net.mbl.hcfsfuse.utils.Utils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -76,7 +77,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         }
       };
 
-    /**
+  /**
    * Creates a new instance of {@link HCFSFuseFileSystem}.
    *
    * @param fs target file system
@@ -241,6 +242,11 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     mOpenFiles.add(new OpenFileEntry(fid, path, is, out));
     fi.fh.set(fid);
 
+    LOG.debug("Open: " + path
+        + "|ProcessId: " + Utils.getProcessId()
+        + "|ThreadId: " + Utils.getThreadId()
+        + "|fid: " + fid + "|is address: " + System.identityHashCode(is));
+
     return 0;
   }
 
@@ -264,45 +270,46 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       LOG.error("Cannot read more than Integer.MAX_VALUE");
       return -ErrorCodes.EINVAL();
     }
-    synchronized (this) {
-      LOG.trace("read({}, {}, {})", path, size, offset);
-      final int sz = (int) size;
-      final long fd = fi.fh.get();
-      OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
-      if (oe == null) {
-        LOG.error("Cannot find fd for {} in table", path);
-        return -ErrorCodes.EBADFD();
-      }
 
-      int rd = 0;
-      int nread = 0;
-      if (oe.getIn() == null) {
-        LOG.error("{} was not open for reading", path);
-        return -ErrorCodes.EBADFD();
-      }
-      try {
+    LOG.trace("read({}, {}, {})", path, size, offset);
+    final int sz = (int) size;
+    final long fd = fi.fh.get();
+    OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
+    if (oe == null) {
+      LOG.error("Cannot find fd for {} in table", path);
+      return -ErrorCodes.EBADFD();
+    }
+
+    int rd = 0;
+    int nread = 0;
+    if (null == oe.getIn()) {
+      LOG.error("{} was not open for reading", path);
+      return -ErrorCodes.EBADFD();
+    }
+    try {
+      final byte[] dest = new byte[sz];
+      synchronized (oe.getIn()) {
         oe.getIn().seek(offset);
-        final byte[] dest = new byte[sz];
         while (rd >= 0 && nread < size) {
           rd = oe.getIn().read(dest, nread, sz - nread);
           if (rd >= 0) {
             nread += rd;
           }
         }
-
-        // EOF
-        if (nread == -1) {
-          nread = 0;
-        } else if (nread > 0) {
-          buf.put(0, dest, 0, nread);
-        }
-      } catch (Throwable t) {
-        LOG.error("Failed to read file {}", path, t);
-        return HCFSFuseUtil.getErrorCode(t);
       }
 
-      return nread;
+      // EOF
+      if (nread == -1) {
+        nread = 0;
+      } else if (nread > 0) {
+        buf.put(0, dest, 0, nread);
+      }
+    } catch (Throwable t) {
+      LOG.error("Failed to read file {}", path, t);
+      return HCFSFuseUtil.getErrorCode(t);
     }
+
+    return nread;
   }
 
   /**
