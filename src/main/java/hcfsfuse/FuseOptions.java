@@ -1,4 +1,4 @@
-package net.mbl.hcfsfuse;
+package hcfsfuse;
 
 import java.util.List;
 

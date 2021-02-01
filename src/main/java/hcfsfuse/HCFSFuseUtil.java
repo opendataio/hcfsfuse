@@ -1,4 +1,4 @@
-package net.mbl.hcfsfuse;
+package hcfsfuse;
 
 import alluxio.util.OSUtils;
 import alluxio.util.ShellUtils;
@@ -8,6 +8,8 @@ import org.slf4j.LoggerFactory;
 import ru.serce.jnrfuse.ErrorCodes;
 
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.lang.management.RuntimeMXBean;
 
 /**
  * Utility methods for Hcfs-FUSE.
@@ -151,6 +153,33 @@ public class HCFSFuseUtil {
       return -ErrorCodes.EIO();
     } else {
       return -ErrorCodes.EBADMSG();
+    }
+  }
+
+  /**
+   * Get current process id.
+   * @return Long
+   */
+  public static Long getProcessId() {
+    try {
+      RuntimeMXBean runtime = ManagementFactory.getRuntimeMXBean();
+      String name = runtime.getName();
+      String pid = name.substring(0, name.indexOf('@'));
+      return Long.parseLong(pid);
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  /**
+   * Get current thread id.
+   * @return Long
+   */
+  public static Long getThreadId() {
+    try {
+      return Thread.currentThread().getId();
+    } catch (Exception e) {
+      return null;
     }
   }
 }

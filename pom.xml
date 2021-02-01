@@ -4,7 +4,7 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>net.mbl</groupId>
+  <groupId>opendataio</groupId>
   <artifactId>hcfsfuse</artifactId>
   <version>1.0.0-SNAPSHOT</version>
 
@@ -359,11 +359,37 @@
           <artifactId>curator-recipes</artifactId>
           <groupId>org.apache.curator</groupId>
         </exclusion>
+        <exclusion>
+          <artifactId>jackson-annotations</artifactId>
+          <groupId>com.fasterxml.jackson.core</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>gson</artifactId>
+          <groupId>com.google.code.gson</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>httpclient</artifactId>
+          <groupId>org.apache.httpcomponents</groupId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-ozone-client</artifactId>
+      <exclusions>
+        <exclusion>
+          <artifactId>netty-all</artifactId>
+          <groupId>io.netty</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>javax.annotation-api</artifactId>
+          <groupId>javax.annotation</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>kotlin-stdlib</artifactId>
+          <groupId>org.jetbrains.kotlin</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
@@ -505,7 +531,7 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <Main-Class>net.mbl.hcfsfuse.HCFSFuse</Main-Class>
+              <Main-Class>hcfsfuse.HCFSFuse</Main-Class>
             </manifestEntries>
           </archive>
         </configuration>

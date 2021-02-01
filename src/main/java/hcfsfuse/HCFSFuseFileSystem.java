@@ -1,4 +1,4 @@
-package net.mbl.hcfsfuse;
+package hcfsfuse;
 
 import alluxio.collections.IndexDefinition;
 import alluxio.collections.IndexedSet;
@@ -11,7 +11,6 @@ import jnr.ffi.Pointer;
 import jnr.ffi.types.mode_t;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
-import net.mbl.hcfsfuse.utils.Utils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -243,7 +242,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     fi.fh.set(fid);
 
     LOG.debug("Open: {} |ProcessId: {}|ThreadId: {}|fid: {}|is address: {}",
-            path,  Utils.getProcessId(), Utils.getThreadId(), fid,
+            path,  HCFSFuseUtil.getProcessId(), HCFSFuseUtil.getThreadId(), fid,
             System.identityHashCode(is));
 
     return 0;

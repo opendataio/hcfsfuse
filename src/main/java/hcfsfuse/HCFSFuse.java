@@ -1,4 +1,4 @@
-package net.mbl.hcfsfuse;
+package hcfsfuse;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
