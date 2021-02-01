@@ -51,7 +51,7 @@ public class HCFSFuse {
     try {
       LOG.info("mounting to {}", opts.getMountPoint());
       fs.mount(Paths.get(opts.getMountPoint()), true, opts.isDebug(),
-          fuseOpts.toArray(new String[0]));
+              fuseOpts.toArray(new String[0]));
     } catch (FuseException e) {
       LOG.error("Failed to mount {}", opts.getMountPoint(), e);
       // only try to umount file system when exception occurred.
