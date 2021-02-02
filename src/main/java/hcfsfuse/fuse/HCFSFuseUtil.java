@@ -1,4 +1,4 @@
-package hcfsfuse;
+package hcfsfuse.fuse;
 
 import alluxio.util.OSUtils;
 import alluxio.util.ShellUtils;
@@ -12,11 +12,12 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 
 /**
- * Utility methods for Hcfs-FUSE.
+ * Utility methods for HCFS-FUSE.
  */
 public class HCFSFuseUtil {
   public static final Logger LOG =
       LoggerFactory.getLogger(HCFSFuseUtil.class);
+  private static final long THRESHOLD = 10_000L;
 
   /**
    * Retrieves the uid of the given user.
@@ -44,19 +45,19 @@ public class HCFSFuseUtil {
    * @param groupName the group name
    * @return gid
    */
-  public static long getGidFromGroupName(String groupName) throws IOException {
+  public static long getGidFromGroupName(String groupName) {
     String result = "";
-    if (OSUtils.isLinux()) {
-      String script = "getent group " + groupName + " | cut -d: -f3";
-      result = ShellUtils.execCommand("bash", "-c", script).trim();
-    } else if (OSUtils.isMacOS()) {
-      String script = "dscl . -read /Groups/" + groupName
-          + " | awk '($1 == \"PrimaryGroupID:\") { print $2 }'";
-      result = ShellUtils.execCommand("bash", "-c", script).trim();
-    }
     try {
+      if (OSUtils.isLinux()) {
+        String script = "getent group " + groupName + " | cut -d: -f3";
+        result = ShellUtils.execCommand("bash", "-c", script).trim();
+      } else if (OSUtils.isMacOS()) {
+        String script = "dscl . -read /Groups/" + groupName
+            + " | awk '($1 == \"PrimaryGroupID:\") { print $2 }'";
+        result = ShellUtils.execCommand("bash", "-c", script).trim();
+      }
       return Long.parseLong(result);
-    } catch (NumberFormatException e) {
+    } catch (NumberFormatException | IOException e) {
       LOG.error("Failed to get gid from group name {}.", groupName);
       return -1;
     }
@@ -154,6 +155,43 @@ public class HCFSFuseUtil {
     } else {
       return -ErrorCodes.EBADMSG();
     }
+  }
+
+  /**
+   * An interface representing a callable for FUSE APIs.
+   */
+  public interface FuseCallable {
+    /**
+     * The RPC implementation.
+     *
+     * @return the return value from the RPC
+     */
+    int call();
+  }
+
+  /**
+   * Calls the given {@link FuseCallable} and returns its result.
+   *
+   * @param logger the logger to use for this call
+   * @param callable the callable to call
+   * @param methodName the name of the method, used for metrics
+   * @param description the format string of the description, used for logging
+   * @param args the arguments for the description
+   * @return the result
+   */
+  public static int call(Logger logger, FuseCallable callable, String methodName,
+      String description, Object... args) {
+    String debugDesc = logger.isDebugEnabled() ? String.format(description, args) : null;
+    logger.debug("Enter: {}({})", methodName, debugDesc);
+    long startMs = System.currentTimeMillis();
+    int ret = callable.call();
+    long durationMs = System.currentTimeMillis() - startMs;
+    logger.debug("Exit ({}): {}({}) in {} ms", ret, methodName, debugDesc, durationMs);
+    if (durationMs >= THRESHOLD) {
+      logger.warn("{}({}) returned {} in {} ms (>={} ms)", methodName,
+          String.format(description, args), ret, durationMs, THRESHOLD);
+    }
+    return ret;
   }
 
   /**

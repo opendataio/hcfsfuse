@@ -1,4 +1,4 @@
-package hcfsfuse;
+package hcfsfuse.fuse;
 
 import alluxio.collections.IndexDefinition;
 import alluxio.collections.IndexedSet;
@@ -81,7 +81,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    *
    * @param fs target file system
    * @param fuseOptions options
-   * @param conf Alluxio configuration
+   * @param conf configuration
    */
   public HCFSFuseFileSystem(FileSystem fs, FuseOptions fuseOptions,
       Configuration conf) throws IOException {
@@ -117,6 +117,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       stat.st_mtim.tv_nsec.set(ctime_nsec);
       stat.st_uid.set(HCFSFuseUtil.getUid(status.getOwner()));
       stat.st_gid.set(HCFSFuseUtil.getGidFromGroupName(status.getGroup()));
+      stat.st_nlink.set(1);
     } catch (IOException e) {
       LOG.debug("Failed to get info of {}, path does not exist or is invalid", path);
       return -ErrorCodes.ENOENT();

@@ -1,4 +1,4 @@
-package hcfsfuse;
+package hcfsfuse.fuse;
 
 import com.google.common.base.Preconditions;
 import org.apache.hadoop.fs.FSDataInputStream;

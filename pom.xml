@@ -531,7 +531,7 @@
         <configuration>
           <archive>
             <manifestEntries>
-              <Main-Class>hcfsfuse.HCFSFuse</Main-Class>
+              <Main-Class>hcfsfuse.fuse.HCFSFuse</Main-Class>
             </manifestEntries>
           </archive>
         </configuration>

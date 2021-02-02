@@ -1,15 +1,16 @@
-package hcfsfuse;
+package hcfsfuse.fuse;
 
 import java.util.List;
 
 /**
- * Convenience class to pass around Alluxio-FUSE options.
+ * Convenience class to pass around HCFS-FUSE options.
  */
 public class FuseOptions {
 
   private final String mountPoint;
   private final String root;
   private final boolean debug;
+  private final boolean jniFuseEnable;
   private final List<String> fuseOpts;
   private final String[] confPaths;
 
@@ -20,14 +21,16 @@ public class FuseOptions {
    * @param debug debug
    * @param fuseOpts fuseOpts
    * @param confPaths confPaths
+   * @param jniFuseEnable jniFuseEnable
    */
   public FuseOptions(String mountPoint, String root, boolean debug,
-                     List<String> fuseOpts, String[] confPaths) {
+      List<String> fuseOpts, String[] confPaths, boolean jniFuseEnable) {
     this.mountPoint = mountPoint;
     this.root = root;
     this.debug = debug;
     this.fuseOpts = fuseOpts;
     this.confPaths = confPaths;
+    this.jniFuseEnable = jniFuseEnable;
   }
 
   /**
@@ -68,5 +71,12 @@ public class FuseOptions {
    */
   public boolean isDebug() {
     return debug;
+  }
+
+  /**
+   * @return true if jniFuse is enabled
+   */
+  public boolean isJniFuseEnable() {
+    return jniFuseEnable;
   }
 }
