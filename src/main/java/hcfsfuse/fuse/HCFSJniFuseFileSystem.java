@@ -1,10 +1,11 @@
 package hcfsfuse.fuse;
 
-import hcfsfuse.jnifuse.AbstractFuseFileSystem;
-import hcfsfuse.jnifuse.ErrorCodes;
-import hcfsfuse.jnifuse.struct.FileStat;
-import hcfsfuse.jnifuse.struct.FuseContext;
-import hcfsfuse.jnifuse.struct.FuseFileInfo;
+import alluxio.fuse.AlluxioFuseUtils;
+import alluxio.jnifuse.AbstractFuseFileSystem;
+import alluxio.jnifuse.ErrorCodes;
+import alluxio.jnifuse.struct.FileStat;
+import alluxio.jnifuse.struct.FuseContext;
+import alluxio.jnifuse.struct.FuseFileInfo;
 
 import alluxio.jnifuse.FuseFillDir;
 import alluxio.resource.LockResource;
@@ -81,8 +82,8 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   private static final String USER_NAME = System.getProperty("user.name");
   private static final String GROUP_NAME = System.getProperty("user.name");
-  private static final long DEFAULT_UID = HCFSFuseUtil.getUid(USER_NAME);
-  private static final long DEFAULT_GID = HCFSFuseUtil.getGid(GROUP_NAME);
+  private static final long DEFAULT_UID = AlluxioFuseUtils.getUid(USER_NAME);
+  private static final long DEFAULT_GID = AlluxioFuseUtils.getGid(GROUP_NAME);
 
   /**
    * Creates a new instance of {@link HCFSJniFuseFileSystem}.
@@ -118,7 +119,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         .build(new CacheLoader<String, Long>() {
           @Override
           public Long load(String userName) {
-            return HCFSFuseUtil.getUid(userName);
+            return AlluxioFuseUtils.getUid(userName);
           }
         });
     mGidCache = CacheBuilder.newBuilder()
@@ -126,7 +127,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         .build(new CacheLoader<String, Long>() {
           @Override
           public Long load(String groupName) {
-            return HCFSFuseUtil.getGidFromGroupName(groupName);
+            return AlluxioFuseUtils.getGidFromGroupName(groupName);
           }
         });
     mIsUserGroupTranslation = true;
@@ -140,7 +141,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
     String gname = "";
     String uname = "";
     if (gid != DEFAULT_GID) {
-      String groupName = HCFSFuseUtil.getGroupName(gid);
+      String groupName = AlluxioFuseUtils.getGroupName(gid);
       if (groupName.isEmpty()) {
         // This should never be reached since input gid is always valid
         LOG.error("Failed to get group name from gid {}, fallback to {}.", gid, GROUP_NAME);
@@ -149,7 +150,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       gname = groupName;
     }
     if (uid != DEFAULT_UID) {
-      String userName = HCFSFuseUtil.getUserName(uid);
+      String userName = AlluxioFuseUtils.getUserName(uid);
       if (userName.isEmpty()) {
         // This should never be reached since input uid is always valid
         LOG.error("Failed to get user name from uid {}, fallback to {}", uid, USER_NAME);
@@ -165,7 +166,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int create(String path, long mode, FuseFileInfo fi) {
-    return HCFSFuseUtil.call(LOG, () -> createInternal(path, mode, fi),
+    return AlluxioFuseUtils.call(LOG, () -> createInternal(path, mode, fi),
         "create", "path=%s,mode=%o", path, mode);
   }
 
@@ -192,7 +193,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int getattr(String path, FileStat stat) {
-    return HCFSFuseUtil.call(
+    return AlluxioFuseUtils.call(
         LOG, () -> getattrInternal(path, stat), "getattr", "path=%s", path);
   }
 
@@ -252,7 +253,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   @Override
   public int readdir(String path, long buff, FuseFillDir filter, long offset,
       FuseFileInfo fi) {
-    return HCFSFuseUtil.call(LOG, () -> readdirInternal(path, buff, filter, offset, fi),
+    return AlluxioFuseUtils.call(LOG, () -> readdirInternal(path, buff, filter, offset, fi),
         "readdir", "path=%s,buf=%s", path, buff);
   }
 
@@ -277,7 +278,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int open(String path, FuseFileInfo fi) {
-    return HCFSFuseUtil.call(LOG, () -> openInternal(path, fi), "open", "path=%s", path);
+    return AlluxioFuseUtils.call(LOG, () -> openInternal(path, fi), "open", "path=%s", path);
   }
 
   private int openInternal(String path, FuseFileInfo fi) {
@@ -296,7 +297,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int read(String path, ByteBuffer buf, long size, long offset, FuseFileInfo fi) {
-    return HCFSFuseUtil.call(LOG, () -> readInternal(path, buf, size, offset, fi),
+    return AlluxioFuseUtils.call(LOG, () -> readInternal(path, buf, size, offset, fi),
         "read", "path=%s,buf=%s,size=%d,offset=%d", path, buf, size, offset);
   }
 
@@ -335,7 +336,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int write(String path, ByteBuffer buf, long size, long offset, FuseFileInfo fi) {
-    return HCFSFuseUtil.call(LOG, () -> writeInternal(path, buf, size, offset, fi),
+    return AlluxioFuseUtils.call(LOG, () -> writeInternal(path, buf, size, offset, fi),
         "write", "path=%s,buf=%s,size=%d,offset=%d", path, buf, size, offset);
   }
 
@@ -369,7 +370,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int flush(String path, FuseFileInfo fi) {
-    return HCFSFuseUtil.call(LOG, () -> flushInternal(path, fi), "flush", "path=%s", path);
+    return AlluxioFuseUtils.call(LOG, () -> flushInternal(path, fi), "flush", "path=%s", path);
   }
 
   private int flushInternal(String path, FuseFileInfo fi) {
@@ -378,7 +379,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int release(String path, FuseFileInfo fi) {
-    return HCFSFuseUtil.call(LOG, () -> releaseInternal(path, fi), "release", "path=%s", path);
+    return AlluxioFuseUtils.call(LOG, () -> releaseInternal(path, fi), "release", "path=%s", path);
   }
 
   private int releaseInternal(String path, FuseFileInfo fi) {
@@ -405,7 +406,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int mkdir(String path, long mode) {
-    return HCFSFuseUtil.call(LOG, () -> mkdirInternal(path, mode),
+    return AlluxioFuseUtils.call(LOG, () -> mkdirInternal(path, mode),
         "mkdir", "path=%s,mode=%o,", path, mode);
   }
 
@@ -428,12 +429,12 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int unlink(String path) {
-    return HCFSFuseUtil.call(LOG, () -> rmInternal(path), "unlink", "path=%s", path);
+    return AlluxioFuseUtils.call(LOG, () -> rmInternal(path), "unlink", "path=%s", path);
   }
 
   @Override
   public int rmdir(String path) {
-    return HCFSFuseUtil.call(LOG, () -> rmInternal(path), "rmdir", "path=%s", path);
+    return AlluxioFuseUtils.call(LOG, () -> rmInternal(path), "rmdir", "path=%s", path);
   }
 
   /**
@@ -457,7 +458,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int rename(String oldPath, String newPath) {
-    return HCFSFuseUtil.call(LOG, () -> renameInternal(oldPath, newPath),
+    return AlluxioFuseUtils.call(LOG, () -> renameInternal(oldPath, newPath),
         "rename", "oldPath=%s,newPath=%s,", oldPath, newPath);
   }
 
@@ -482,7 +483,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int chmod(String path, long mode) {
-    return HCFSFuseUtil.call(LOG, () -> chmodInternal(path, mode),
+    return AlluxioFuseUtils.call(LOG, () -> chmodInternal(path, mode),
         "chmod", "path=%s,mode=%o", path, mode);
   }
 
@@ -493,14 +494,14 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       mFileSystem.setPermission(uri, new FsPermission((int) mode));
     } catch (Throwable t) {
       LOG.error("Failed to change {} to mode {}", path, mode, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return AlluxioFuseUtils.getErrorCode(t);
     }
     return 0;
   }
 
   @Override
   public int chown(String path, long uid, long gid) {
-    return HCFSFuseUtil.call(LOG, () -> chownInternal(path, uid, gid),
+    return AlluxioFuseUtils.call(LOG, () -> chownInternal(path, uid, gid),
         "chown", "path=%s,uid=%o,gid=%o", path, uid, gid);
   }
 
@@ -515,7 +516,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
       String userName = "";
       if (uid != ID_NOT_SET_VALUE && uid != ID_NOT_SET_VALUE_UNSIGNED) {
-        userName = HCFSFuseUtil.getUserName(uid);
+        userName = AlluxioFuseUtils.getUserName(uid);
         if (userName.isEmpty()) {
           // This should never be reached
           LOG.error("Failed to get user name from uid {}", uid);
@@ -525,14 +526,14 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
       String groupName = "";
       if (gid != ID_NOT_SET_VALUE && gid != ID_NOT_SET_VALUE_UNSIGNED) {
-        groupName = HCFSFuseUtil.getGroupName(gid);
+        groupName = AlluxioFuseUtils.getGroupName(gid);
         if (groupName.isEmpty()) {
           // This should never be reached
           LOG.error("Failed to get group name from gid {}", gid);
           return -ErrorCodes.EINVAL();
         }
       } else if (!userName.isEmpty()) {
-        groupName = HCFSFuseUtil.getGroupName(userName);
+        groupName = AlluxioFuseUtils.getGroupName(userName);
       }
 
       if (userName.isEmpty() && groupName.isEmpty()) {
@@ -548,7 +549,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       }
     } catch (Throwable t) {
       LOG.error("Failed to chown {} to uid {} and gid {}", path, uid, gid, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return AlluxioFuseUtils.getErrorCode(t);
     }
     return 0;
   }

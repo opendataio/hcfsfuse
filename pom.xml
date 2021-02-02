@@ -10,8 +10,6 @@
 
   <properties>
     <rootPOM>${basedir}/</rootPOM>
-    <multimodule.version>1.0.0-SNAPSHOT</multimodule.version>
-
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.compilerVersion>1.8</maven.compiler.compilerVersion>
     <maven.compiler.source>1.8</maven.compiler.source>
@@ -26,7 +24,7 @@
     <maven-jar-plugin.version>2.5</maven-jar-plugin.version>
     <log4j.version>2.5</log4j.version>
 
-    <alluxio.version>2.4.1</alluxio.version>
+    <alluxio.version>2.4.1-2</alluxio.version>
     <hadoop.version>3.2.1</hadoop.version>
     <ozone.version>1.0.0</ozone.version>
     <!-- Test package version -->
@@ -100,6 +98,11 @@
       </dependency>
       <dependency>
         <groupId>org.alluxio</groupId>
+        <artifactId>alluxio-integration-fuse</artifactId>
+        <version>${alluxio.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.alluxio</groupId>
         <artifactId>alluxio-core-base</artifactId>
         <version>${alluxio.version}</version>
         <exclusions>
@@ -115,6 +118,11 @@
         <version>${alluxio.version}</version>
       </dependency>
       <dependency>
+        <groupId>org.alluxio</groupId>
+        <artifactId>alluxio-core-client-fs</artifactId>
+        <version>${alluxio.version}</version>
+      </dependency>
+      <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-ozone-client</artifactId>
         <version>${ozone.version}</version>
@@ -127,6 +135,10 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <dependency>
+      <groupId>org.alluxio</groupId>
+      <artifactId>alluxio-integration-fuse</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.alluxio</groupId>
       <artifactId>alluxio-core-base</artifactId>
@@ -156,10 +168,6 @@
           <groupId>io.grpc</groupId>
         </exclusion>
         <exclusion>
-          <artifactId>grpc-protobuf</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
           <artifactId>grpc-stub</artifactId>
           <groupId>io.grpc</groupId>
         </exclusion>
@@ -183,10 +191,6 @@
         </exclusion>
         <exclusion>
           <artifactId>grpc-core</artifactId>
-          <groupId>io.grpc</groupId>
-        </exclusion>
-        <exclusion>
-          <artifactId>grpc-netty</artifactId>
           <groupId>io.grpc</groupId>
         </exclusion>
         <exclusion>
@@ -225,6 +229,20 @@
           <artifactId>log4j-slf4j-impl</artifactId>
           <groupId>org.apache.logging.log4j</groupId>
         </exclusion>
+        <exclusion>
+          <artifactId>commons-codec</artifactId>
+          <groupId>commons-codec</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.alluxio</groupId>
+      <artifactId>alluxio-core-client-fs</artifactId>
+      <exclusions>
+        <exclusion>
+          <artifactId>slf4j-api</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -254,6 +272,12 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
+      <exclusions>
+        <exclusion>
+          <artifactId>animal-sniffer-annotations</artifactId>
+          <groupId>org.codehaus.mojo</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>commons-cli</groupId>

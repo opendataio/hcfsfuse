@@ -2,6 +2,8 @@ package hcfsfuse.fuse;
 
 import alluxio.collections.IndexDefinition;
 import alluxio.collections.IndexedSet;
+import alluxio.fuse.AlluxioFuseUtils;
+import alluxio.fuse.OpenFileEntry;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -50,26 +52,28 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @VisibleForTesting
   public static final int MAX_NAME_LENGTH = 255;
-  private static final long UID = HCFSFuseUtil.getUid(System.getProperty("user.name"));
-  private static final long GID = HCFSFuseUtil.getGid(System.getProperty("user.name"));
+  private static final long UID = AlluxioFuseUtils.getUid(System.getProperty("user.name"));
+  private static final long GID = AlluxioFuseUtils.getGid(System.getProperty("user.name"));
   private final Path mRootPath;
   private final FileSystem mFileSystem;
   // Table of open files with corresponding InputStreams and OutputStreams
-  private final IndexedSet<OpenFileEntry> mOpenFiles;
+  private final IndexedSet<OpenFileEntry<FSDataInputStream, FSDataOutputStream>> mOpenFiles;
   private AtomicLong mNextOpenFileId = new AtomicLong(0);
   private final LoadingCache<String, Path> mPathResolverCache;
 
   // Open file managements
-  private static final IndexDefinition<OpenFileEntry, Long> ID_INDEX =
-      new IndexDefinition<OpenFileEntry, Long>(true) {
+  private static final IndexDefinition<OpenFileEntry<FSDataInputStream, FSDataOutputStream>, Long>
+      ID_INDEX =
+      new IndexDefinition<OpenFileEntry<FSDataInputStream, FSDataOutputStream>, Long>(true) {
         @Override
         public Long getFieldValue(OpenFileEntry o) {
           return o.getId();
         }
       };
 
-  private static final IndexDefinition<OpenFileEntry, String> PATH_INDEX =
-      new IndexDefinition<OpenFileEntry, String>(true) {
+  private static final IndexDefinition<OpenFileEntry<FSDataInputStream, FSDataOutputStream>, String>
+      PATH_INDEX =
+      new IndexDefinition<OpenFileEntry<FSDataInputStream, FSDataOutputStream>, String>(true) {
         @Override
         public String getFieldValue(OpenFileEntry o) {
           return o.getPath();
@@ -115,8 +119,8 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       stat.st_ctim.tv_nsec.set(ctime_nsec);
       stat.st_mtim.tv_sec.set(ctime_sec);
       stat.st_mtim.tv_nsec.set(ctime_nsec);
-      stat.st_uid.set(HCFSFuseUtil.getUid(status.getOwner()));
-      stat.st_gid.set(HCFSFuseUtil.getGidFromGroupName(status.getGroup()));
+      stat.st_uid.set(AlluxioFuseUtils.getUid(status.getOwner()));
+      stat.st_gid.set(AlluxioFuseUtils.getGidFromGroupName(status.getGroup()));
       stat.st_nlink.set(1);
     } catch (IOException e) {
       LOG.debug("Failed to get info of {}, path does not exist or is invalid", path);
@@ -182,13 +186,13 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     long uid = fc.uid.get();
     long gid = fc.gid.get();
     try {
-      String groupName = HCFSFuseUtil.getGroupName(gid);
+      String groupName = AlluxioFuseUtils.getGroupName(gid);
       if (groupName.isEmpty()) {
         // This should never be reached since input gid is always valid
         LOG.error("Failed to get group name from gid {}.", gid);
         return -ErrorCodes.EFAULT();
       }
-      String userName = HCFSFuseUtil.getUserName(uid);
+      String userName = AlluxioFuseUtils.getUserName(uid);
       if (userName.isEmpty()) {
         // This should never be reached since input uid is always valid
         LOG.error("Failed to get user name from uid {}", uid);
@@ -204,7 +208,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
       LOG.error("Failed to create directory {}", path, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return AlluxioFuseUtils.getErrorCode(t);
     }
 
     return 0;
@@ -273,7 +277,8 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     LOG.trace("read({}, {}, {})", path, size, offset);
     final int sz = (int) size;
     final long fd = fi.fh.get();
-    OpenFileEntry oe = mOpenFiles.getFirstByField(ID_INDEX, fd);
+    OpenFileEntry<FSDataInputStream, FSDataOutputStream> oe =
+        mOpenFiles.getFirstByField(ID_INDEX, fd);
     if (oe == null) {
       LOG.error("Cannot find fd for {} in table", path);
       return -ErrorCodes.EBADFD();
@@ -305,7 +310,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       }
     } catch (Throwable t) {
       LOG.error("Failed to read file {}", path, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return AlluxioFuseUtils.getErrorCode(t);
     }
 
     return nread;
@@ -343,7 +348,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       String gname = "";
       String uname = "";
       if (gid != GID) {
-        String groupName = HCFSFuseUtil.getGroupName(gid);
+        String groupName = AlluxioFuseUtils.getGroupName(gid);
         if (groupName.isEmpty()) {
           // This should never be reached since input gid is always valid
           LOG.error("Failed to get group name from gid {}.", gid);
@@ -352,7 +357,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         gname = groupName;
       }
       if (uid != UID) {
-        String userName = HCFSFuseUtil.getUserName(uid);
+        String userName = AlluxioFuseUtils.getUserName(uid);
         if (userName.isEmpty()) {
           // This should never be reached since input uid is always valid
           LOG.error("Failed to get user name from uid {}", uid);
@@ -377,7 +382,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
       LOG.error("Failed to create {}", path, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return AlluxioFuseUtils.getErrorCode(t);
     }
 
     return 0;
@@ -475,7 +480,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       return -ErrorCodes.EEXIST();
     } catch (Throwable t) {
       LOG.error("Failed to rename {} to {}", oldPath, newPath, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return AlluxioFuseUtils.getErrorCode(t);
     }
 
     return 0;
@@ -577,7 +582,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       mFileSystem.setPermission(turi, new FsPermission((int) mode));
     } catch (IOException e) {
       LOG.error("Failed to chmod {}", path, e);
-      return HCFSFuseUtil.getErrorCode(e);
+      return AlluxioFuseUtils.getErrorCode(e);
     }
     return 0;
   }
@@ -598,7 +603,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       return -ErrorCodes.ENOENT();
     } catch (Throwable t) {
       LOG.error("Failed to remove {}", path, t);
-      return HCFSFuseUtil.getErrorCode(t);
+      return AlluxioFuseUtils.getErrorCode(t);
     }
 
     return 0;
