@@ -9,9 +9,19 @@
  * See the NOTICE file distributed with this work for information regarding copyright ownership.
  */
 
-package alluxio.jnifuse;
+package alluxio.jnifuse.struct;
 
-public class LibFuse {
+import java.nio.ByteBuffer;
 
-  public native int fuse_main_real(AbstractFuseFileSystem fs, int argc, String[] argv);
+// TODO(iluoeli): Add more fields
+public class FuseContext extends Struct {
+
+  public final Unsigned32 uid = new Unsigned32();
+  public final Unsigned32 gid = new Unsigned32();
+
+  public FuseContext(ByteBuffer buffer) {
+    super(buffer);
+  }
+
+
 }

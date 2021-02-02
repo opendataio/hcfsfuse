@@ -11,7 +11,24 @@
 
 package alluxio.jnifuse;
 
-public class LibFuse {
+/**
+ * Exception indicating Fuse errors.
+ */
+public class FuseException extends RuntimeException {
 
-  public native int fuse_main_real(AbstractFuseFileSystem fs, int argc, String[] argv);
+  /**
+   * @param message error message
+   */
+  public FuseException(String message) {
+    super(message);
+  }
+
+  /**
+   * @param message error message
+   * @param cause exception cause
+   */
+  public FuseException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }
+

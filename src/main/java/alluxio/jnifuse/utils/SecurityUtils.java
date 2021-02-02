@@ -9,9 +9,21 @@
  * See the NOTICE file distributed with this work for information regarding copyright ownership.
  */
 
-package alluxio.jnifuse;
+package alluxio.jnifuse.utils;
 
-public class LibFuse {
+public final class SecurityUtils {
+  public static boolean canHandleShutdownHooks() {
+    SecurityManager security = System.getSecurityManager();
+    if (security == null) {
+      return true;
+    }
+    try {
+      security.checkPermission(new RuntimePermission("shutdownHooks"));
+      return true;
+    } catch (final SecurityException e) {
+      return false;
+    }
+  }
 
-  public native int fuse_main_real(AbstractFuseFileSystem fs, int argc, String[] argv);
+  private SecurityUtils() {} // prevent instantiation
 }

@@ -1,41 +1,53 @@
-package hcfsfuse.fuse;
+/*
+ * The Alluxio Open Foundation licenses this work under the Apache License, version 2.0
+ * (the "License"). You may not use this work except in compliance with the License, which is
+ * available at www.apache.org/licenses/LICENSE-2.0
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied, as more fully set forth in the License.
+ *
+ * See the NOTICE file distributed with this work for information regarding copyright ownership.
+ */
 
-import alluxio.fuse.AlluxioFuseUtils;
+package alluxio.fuse;
+
+import alluxio.AlluxioURI;
+import alluxio.client.file.FileInStream;
+import alluxio.client.file.FileOutStream;
+import alluxio.client.file.FileSystem;
+import alluxio.client.file.URIStatus;
+import alluxio.conf.AlluxioConfiguration;
+import alluxio.conf.PropertyKey;
+import alluxio.exception.FileDoesNotExistException;
+import alluxio.grpc.CreateDirectoryPOptions;
+import alluxio.grpc.CreateFilePOptions;
+import alluxio.grpc.SetAttributePOptions;
 import alluxio.jnifuse.AbstractFuseFileSystem;
 import alluxio.jnifuse.ErrorCodes;
+import alluxio.jnifuse.FuseFillDir;
 import alluxio.jnifuse.struct.FileStat;
 import alluxio.jnifuse.struct.FuseContext;
 import alluxio.jnifuse.struct.FuseFileInfo;
-
-import alluxio.jnifuse.FuseFillDir;
 import alluxio.resource.LockResource;
+import alluxio.security.authorization.Mode;
 import alluxio.util.ThreadUtils;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.Striped;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 
@@ -45,12 +57,18 @@ import java.util.concurrent.locks.ReadWriteLock;
  * Implements the FUSE callbacks defined by jni-fuse.
  */
 @ThreadSafe
-public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
-  private static final Logger LOG = LoggerFactory.getLogger(HCFSJniFuseFileSystem.class);
+public final class AlluxioJniFuseFileSystem extends AbstractFuseFileSystem {
+  private static final Logger LOG = LoggerFactory.getLogger(
+      AlluxioJniFuseFileSystem.class);
   private final FileSystem mFileSystem;
-  private final Configuration mConf;
-  private final Path mRootPath;
-  private final LoadingCache<String, Path> mPathResolverCache;
+  private final AlluxioConfiguration mConf;
+  // base path within Alluxio namespace that is used for FUSE operations
+  // For example, if alluxio-fuse is mounted in /mnt/alluxio and mAlluxioRootPath
+  // is /users/foo, then an operation on /mnt/alluxio/bar will be translated on
+  // an action on the URI alluxio://<master>:<port>/users/foo/bar
+  private final Path mAlluxioRootPath;
+  // Keeps a cache of the most recently translated paths from String to Alluxio URI
+  private final LoadingCache<String, AlluxioURI> mPathResolverCache;
   private final LoadingCache<String, Long> mUidCache;
   private final LoadingCache<String, Long> mGidCache;
   private final AtomicLong mNextOpenFileId = new AtomicLong(0);
@@ -60,8 +78,8 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   /** A readwrite lock pool to guard individual files based on striping. */
   private final Striped<ReadWriteLock> mFileLocks = Striped.readWriteLock(LOCK_SIZE);
 
-  private final Map<Long, FSDataInputStream> mOpenFileEntries = new ConcurrentHashMap<>();
-  private final Map<Long, FSDataOutputStream> mCreateFileEntries = new ConcurrentHashMap<>();
+  private final Map<Long, FileInStream> mOpenFileEntries = new ConcurrentHashMap<>();
+  private final Map<Long, FileOutStream> mCreateFileEntries = new ConcurrentHashMap<>();
   private final boolean mIsUserGroupTranslation;
 
   // To make test build
@@ -86,32 +104,29 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   private static final long DEFAULT_GID = AlluxioFuseUtils.getGid(GROUP_NAME);
 
   /**
-   * Creates a new instance of {@link HCFSJniFuseFileSystem}.
+   * Creates a new instance of {@link AlluxioJniFuseFileSystem}.
    *
-   * @param fs target file system
-   * @param fuseOptions options
-   * @param conf configuration
+   * @param fs Alluxio file system
+   * @param opts options
+   * @param conf Alluxio configuration
    */
-  public HCFSJniFuseFileSystem(
-      FileSystem fs, FuseOptions fuseOptions, Configuration conf) {
-    super(Paths.get(fuseOptions.getMountPoint()));
-    mFsName = "hcfsJniFuse-" + ThreadLocalRandom.current().nextInt();
+  public AlluxioJniFuseFileSystem(
+      FileSystem fs, AlluxioFuseOptions opts, AlluxioConfiguration conf) {
+    super(Paths.get(opts.getMountPoint()));
+    mFsName = conf.get(PropertyKey.FUSE_FS_NAME);
     mFileSystem = fs;
     mConf = conf;
-    mRootPath = new Path(fuseOptions.getRoot());
+    mAlluxioRootPath = Paths.get(opts.getAlluxioRoot());
     mPathResolverCache = CacheBuilder.newBuilder()
-        .maximumSize(500)
-        .build(new CacheLoader<String, Path>() {
+        .maximumSize(conf.getInt(PropertyKey.FUSE_CACHED_PATHS_MAX))
+        .build(new CacheLoader<String, AlluxioURI>() {
           @Override
-          public Path load(String fusePath) {
+          public AlluxioURI load(String fusePath) {
             // fusePath is guaranteed to always be an absolute path (i.e., starts
             // with a fwd slash) - relative to the FUSE mount point
-            String relPath = fusePath.substring(1);
-            if (relPath.isEmpty()) {
-              relPath = ".";
-            }
-            Path turi = new Path(mRootPath, relPath);
-            return turi;
+            final String relPath = fusePath.substring(1);
+            final Path tpath = mAlluxioRootPath.resolve(relPath);
+            return new AlluxioURI(tpath.toString());
           }
         });
     mUidCache = CacheBuilder.newBuilder()
@@ -130,16 +145,14 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
             return AlluxioFuseUtils.getGidFromGroupName(groupName);
           }
         });
-    mIsUserGroupTranslation = true;
+    mIsUserGroupTranslation = conf.getBoolean(PropertyKey.FUSE_USER_GROUP_TRANSLATION_ENABLED);
   }
 
-  private void setUserGroupIfNeeded(Path uri) throws Exception {
+  private void setUserGroupIfNeeded(AlluxioURI uri) throws Exception {
+    SetAttributePOptions.Builder attributeOptionsBuilder = SetAttributePOptions.newBuilder();
     FuseContext fc = getContext();
     long uid = fc.uid.get();
     long gid = fc.gid.get();
-
-    String gname = "";
-    String uname = "";
     if (gid != DEFAULT_GID) {
       String groupName = AlluxioFuseUtils.getGroupName(gid);
       if (groupName.isEmpty()) {
@@ -147,7 +160,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         LOG.error("Failed to get group name from gid {}, fallback to {}.", gid, GROUP_NAME);
         groupName = GROUP_NAME;
       }
-      gname = groupName;
+      attributeOptionsBuilder.setGroup(groupName);
     }
     if (uid != DEFAULT_UID) {
       String userName = AlluxioFuseUtils.getUserName(uid);
@@ -156,11 +169,12 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         LOG.error("Failed to get user name from uid {}, fallback to {}", uid, USER_NAME);
         userName = USER_NAME;
       }
-      uname = userName;
+      attributeOptionsBuilder.setOwner(userName);
     }
+    SetAttributePOptions setAttributePOptions =  attributeOptionsBuilder.build();
     if (gid != DEFAULT_GID || uid != DEFAULT_UID) {
-      LOG.debug("Set attributes of path {} to {}, {}", uri, gid, uid);
-      mFileSystem.setOwner(uri, uname, gname);
+      LOG.debug("Set attributes of path {} to {}", uri, setAttributePOptions);
+      mFileSystem.setAttribute(uri, setAttributePOptions);
     }
   }
 
@@ -171,15 +185,17 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   }
 
   private int createInternal(String path, long mode, FuseFileInfo fi) {
-    final Path uri = mPathResolverCache.getUnchecked(path);
+    final AlluxioURI uri = mPathResolverCache.getUnchecked(path);
     if (uri.getName().length() > MAX_NAME_LENGTH) {
       LOG.error("Failed to create {}: file name longer than {} characters",
           path, MAX_NAME_LENGTH);
       return -ErrorCodes.ENAMETOOLONG();
     }
     try {
-      FSDataOutputStream os =
-          mFileSystem.create(mFileSystem, uri, new FsPermission((int) mode));
+      FileOutStream os = mFileSystem.createFile(uri,
+          CreateFilePOptions.newBuilder()
+              .setMode(new Mode((short) mode).toProto())
+              .build());
       long fid = mNextOpenFileId.getAndIncrement();
       mCreateFileEntries.put(fid, os);
       fi.fh.set(fid);
@@ -198,10 +214,10 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   }
 
   private int getattrInternal(String path, FileStat stat) {
-    final Path uri = mPathResolverCache.getUnchecked(path);
+    final AlluxioURI uri = mPathResolverCache.getUnchecked(path);
     try {
-      FileStatus status = mFileSystem.getFileStatus(uri);
-      long size = status.getLen();
+      URIStatus status = mFileSystem.getStatus(uri);
+      long size = status.getLength();
       stat.st_size.set(size);
 
       // Sets block number to fulfill du command needs
@@ -211,9 +227,9 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       // `st_blocks` is the number of 512B blocks allocated
       stat.st_blocks.set((int) Math.ceil((double) size / 512));
 
-      final long ctime_sec = status.getModificationTime() / 1000;
+      final long ctime_sec = status.getLastModificationTimeMs() / 1000;
       // Keeps only the "residual" nanoseconds not caputred in citme_sec
-      final long ctime_nsec = (status.getModificationTime() % 1000) * 1000;
+      final long ctime_nsec = (status.getLastModificationTimeMs() % 1000) * 1_000_000L;
 
       stat.st_ctim.tv_sec.set(ctime_sec);
       stat.st_ctim.tv_nsec.set(ctime_nsec);
@@ -231,15 +247,15 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         stat.st_gid.set(DEFAULT_GID);
       }
 
-      int mode = status.getPermission().toShort();
-      if (status.isDirectory()) {
+      int mode = status.getMode();
+      if (status.isFolder()) {
         mode |= FileStat.S_IFDIR;
       } else {
         mode |= FileStat.S_IFREG;
       }
       stat.st_mode.set(mode);
       stat.st_nlink.set(1);
-    } catch (IOException e) {
+    } catch (FileDoesNotExistException | InvalidPathException e) {
       LOG.debug("Failed to get info of {}, path does not exist or is invalid", path);
       return -ErrorCodes.ENOENT();
     } catch (Throwable e) {
@@ -253,21 +269,22 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   @Override
   public int readdir(String path, long buff, FuseFillDir filter, long offset,
       FuseFileInfo fi) {
-    return AlluxioFuseUtils.call(LOG, () -> readdirInternal(path, buff, filter, offset, fi),
+    return AlluxioFuseUtils
+        .call(LOG, () -> readdirInternal(path, buff, filter, offset, fi),
         "readdir", "path=%s,buf=%s", path, buff);
   }
 
   private int readdirInternal(String path, long buff, FuseFillDir filter, long offset,
       FuseFileInfo fi) {
-    final Path uri = mPathResolverCache.getUnchecked(path);
+    final AlluxioURI uri = mPathResolverCache.getUnchecked(path);
     try {
       // standard . and .. entries
       filter.apply(buff, ".", null, 0);
       filter.apply(buff, "..", null, 0);
-      final FileStatus[] ls = mFileSystem.listStatus(uri);
-      for (FileStatus file : ls) {
-        filter.apply(buff, file.getPath().getName(), null, 0);
-      }
+
+      mFileSystem.iterateStatus(uri, file -> {
+        filter.apply(buff, file.getName(), null, 0);
+      });
     } catch (Throwable e) {
       LOG.error("Failed to readdir {}: ", path, e);
       return -ErrorCodes.EIO();
@@ -278,14 +295,15 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int open(String path, FuseFileInfo fi) {
-    return AlluxioFuseUtils.call(LOG, () -> openInternal(path, fi), "open", "path=%s", path);
+    return AlluxioFuseUtils
+        .call(LOG, () -> openInternal(path, fi), "open", "path=%s", path);
   }
 
   private int openInternal(String path, FuseFileInfo fi) {
-    final Path uri = mPathResolverCache.getUnchecked(path);
+    final AlluxioURI uri = mPathResolverCache.getUnchecked(path);
     try {
       long fd = mNextOpenFileId.getAndIncrement();
-      FSDataInputStream is = mFileSystem.open(uri);
+      FileInStream is = mFileSystem.openFile(uri);
       mOpenFileEntries.put(fd, is);
       fi.fh.set(fd);
       return 0;
@@ -297,7 +315,8 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int read(String path, ByteBuffer buf, long size, long offset, FuseFileInfo fi) {
-    return AlluxioFuseUtils.call(LOG, () -> readInternal(path, buf, size, offset, fi),
+    return AlluxioFuseUtils
+        .call(LOG, () -> readInternal(path, buf, size, offset, fi),
         "read", "path=%s,buf=%s,size=%d,offset=%d", path, buf, size, offset);
   }
 
@@ -308,7 +327,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
     long fd = fi.fh.get();
     // FileInStream is not thread safe
     try (LockResource r1 = new LockResource(mFileLocks.get(fd).writeLock())) {
-      FSDataInputStream is = mOpenFileEntries.get(fd);
+      FileInStream is = mOpenFileEntries.get(fd);
       if (is == null) {
         LOG.error("Cannot find fd {} for {}", fd, path);
         return -ErrorCodes.EBADFD();
@@ -336,7 +355,8 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int write(String path, ByteBuffer buf, long size, long offset, FuseFileInfo fi) {
-    return AlluxioFuseUtils.call(LOG, () -> writeInternal(path, buf, size, offset, fi),
+    return AlluxioFuseUtils
+        .call(LOG, () -> writeInternal(path, buf, size, offset, fi),
         "write", "path=%s,buf=%s,size=%d,offset=%d", path, buf, size, offset);
   }
 
@@ -347,12 +367,12 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
     }
     final int sz = (int) size;
     final long fd = fi.fh.get();
-    FSDataOutputStream os = mCreateFileEntries.get(fd);
+    FileOutStream os = mCreateFileEntries.get(fd);
     if (os == null) {
       LOG.error("Cannot find fd for {} in table", path);
       return -ErrorCodes.EBADFD();
     }
-    if (offset < os.getPos()) {
+    if (offset < os.getBytesWritten()) {
       // no op
       return sz;
     }
@@ -370,7 +390,8 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int flush(String path, FuseFileInfo fi) {
-    return AlluxioFuseUtils.call(LOG, () -> flushInternal(path, fi), "flush", "path=%s", path);
+    return AlluxioFuseUtils
+        .call(LOG, () -> flushInternal(path, fi), "flush", "path=%s", path);
   }
 
   private int flushInternal(String path, FuseFileInfo fi) {
@@ -379,14 +400,15 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int release(String path, FuseFileInfo fi) {
-    return AlluxioFuseUtils.call(LOG, () -> releaseInternal(path, fi), "release", "path=%s", path);
+    return AlluxioFuseUtils
+        .call(LOG, () -> releaseInternal(path, fi), "release", "path=%s", path);
   }
 
   private int releaseInternal(String path, FuseFileInfo fi) {
     long fd = fi.fh.get();
     try (LockResource r1 = new LockResource(mFileLocks.get(fd).writeLock())) {
-      FSDataInputStream is = mOpenFileEntries.remove(fd);
-      FSDataOutputStream os = mCreateFileEntries.remove(fd);
+      FileInStream is = mOpenFileEntries.remove(fd);
+      FileOutStream os = mCreateFileEntries.remove(fd);
       if (is == null && os == null) {
         LOG.error("Cannot find fd {} for {}", fd, path);
         return -ErrorCodes.EBADFD();
@@ -411,14 +433,17 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   }
 
   private int mkdirInternal(String path, long mode) {
-    final Path uri = mPathResolverCache.getUnchecked(path);
+    final AlluxioURI uri = mPathResolverCache.getUnchecked(path);
     if (uri.getName().length() > MAX_NAME_LENGTH) {
       LOG.error("Failed to create directory {}: name longer than {} characters",
           path, MAX_NAME_LENGTH);
       return -ErrorCodes.ENAMETOOLONG();
     }
     try {
-      mFileSystem.mkdirs(uri, new FsPermission((int) mode));
+      mFileSystem.createDirectory(uri,
+          CreateDirectoryPOptions.newBuilder()
+              .setMode(new Mode((short) mode).toProto())
+              .build());
       setUserGroupIfNeeded(uri);
     } catch (Throwable e) {
       LOG.error("Failed to mkdir {}: ", path, e);
@@ -429,12 +454,14 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int unlink(String path) {
-    return AlluxioFuseUtils.call(LOG, () -> rmInternal(path), "unlink", "path=%s", path);
+    return AlluxioFuseUtils
+        .call(LOG, () -> rmInternal(path), "unlink", "path=%s", path);
   }
 
   @Override
   public int rmdir(String path) {
-    return AlluxioFuseUtils.call(LOG, () -> rmInternal(path), "rmdir", "path=%s", path);
+    return AlluxioFuseUtils
+        .call(LOG, () -> rmInternal(path), "rmdir", "path=%s", path);
   }
 
   /**
@@ -444,10 +471,10 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
    * @return 0 on success, a negative value on error
    */
   private int rmInternal(String path) {
-    final Path uri = mPathResolverCache.getUnchecked(path);
+    final AlluxioURI uri = mPathResolverCache.getUnchecked(path);
 
     try {
-      mFileSystem.delete(uri, true);
+      mFileSystem.delete(uri);
     } catch (Throwable e) {
       LOG.error("Failed to delete {}: ", path, e);
       return -ErrorCodes.EIO();
@@ -463,8 +490,8 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   }
 
   private int renameInternal(String oldPath, String newPath) {
-    final Path oldUri = mPathResolverCache.getUnchecked(oldPath);
-    final Path newUri = mPathResolverCache.getUnchecked(newPath);
+    final AlluxioURI oldUri = mPathResolverCache.getUnchecked(oldPath);
+    final AlluxioURI newUri = mPathResolverCache.getUnchecked(newPath);
     final String name = newUri.getName();
     if (name.length() > MAX_NAME_LENGTH) {
       LOG.error("Failed to rename {} to {}, name {} is longer than {} characters",
@@ -488,10 +515,12 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   }
 
   private int chmodInternal(String path, long mode) {
-    Path uri = mPathResolverCache.getUnchecked(path);
+    AlluxioURI uri = mPathResolverCache.getUnchecked(path);
 
+    SetAttributePOptions options = SetAttributePOptions.newBuilder()
+        .setMode(new Mode((short) mode).toProto()).build();
     try {
-      mFileSystem.setPermission(uri, new FsPermission((int) mode));
+      mFileSystem.setAttribute(uri, options);
     } catch (Throwable t) {
       LOG.error("Failed to change {} to mode {}", path, mode, t);
       return AlluxioFuseUtils.getErrorCode(t);
@@ -507,12 +536,15 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   private int chownInternal(String path, long uid, long gid) {
     if (!mIsUserGroupTranslation) {
-      LOG.info("Cannot change the owner/group of path {}", path);
+      LOG.info("Cannot change the owner/group of path {}. Please set {} to be true to enable "
+              + "user group translation in Alluxio-FUSE.",
+          path, PropertyKey.FUSE_USER_GROUP_TRANSLATION_ENABLED.getName());
       return -ErrorCodes.EOPNOTSUPP();
     }
 
     try {
-      final Path uri = mPathResolverCache.getUnchecked(path);
+      SetAttributePOptions.Builder optionsBuilder = SetAttributePOptions.newBuilder();
+      final AlluxioURI uri = mPathResolverCache.getUnchecked(path);
 
       String userName = "";
       if (uid != ID_NOT_SET_VALUE && uid != ID_NOT_SET_VALUE_UNSIGNED) {
@@ -522,6 +554,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
           LOG.error("Failed to get user name from uid {}", uid);
           return -ErrorCodes.EINVAL();
         }
+        optionsBuilder.setOwner(userName);
       }
 
       String groupName = "";
@@ -532,8 +565,10 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
           LOG.error("Failed to get group name from gid {}", gid);
           return -ErrorCodes.EINVAL();
         }
+        optionsBuilder.setGroup(groupName);
       } else if (!userName.isEmpty()) {
         groupName = AlluxioFuseUtils.getGroupName(userName);
+        optionsBuilder.setGroup(groupName);
       }
 
       if (userName.isEmpty() && groupName.isEmpty()) {
@@ -542,10 +577,10 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
             userName, groupName);
       } else if (userName.isEmpty()) {
         LOG.info("Change group of file {} to {}", path, groupName);
-        mFileSystem.setOwner(uri, null, groupName);
+        mFileSystem.setAttribute(uri, optionsBuilder.build());
       } else {
-        LOG.info("Change owner of file {} to {}", path, userName);
-        mFileSystem.setOwner(uri, userName, null);
+        LOG.info("Change owner of file {} to {}", path, groupName);
+        mFileSystem.setAttribute(uri, optionsBuilder.build());
       }
     } catch (Throwable t) {
       LOG.error("Failed to chown {} to uid {} and gid {}", path, uid, gid, t);
@@ -570,22 +605,22 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public void mount(boolean blocking, boolean debug, String[] fuseOpts) {
-    LOG.info("Mounting HCFSJniFuseFileSystem: blocking={}, debug={}, fuseOpts=\"{}\"",
+    LOG.info("Mounting AlluxioJniFuseFileSystem: blocking={}, debug={}, fuseOpts=\"{}\"",
         blocking, debug, Arrays.toString(fuseOpts));
     super.mount(blocking, debug, fuseOpts);
-    LOG.info("HCFSJniFuseFileSystem mounted: blocking={}, debug={}, fuseOpts=\"{}\"",
+    LOG.info("AlluxioJniFuseFileSystem mounted: blocking={}, debug={}, fuseOpts=\"{}\"",
         blocking, debug, Arrays.toString(fuseOpts));
   }
 
   @Override
   public void umount() {
-    LOG.info("Umount HCFSJniFuseFileSystem, {}",
+    LOG.info("Umount AlluxioJniFuseFileSystem, {}",
         ThreadUtils.formatStackTrace(Thread.currentThread()));
     super.umount();
   }
 
   @VisibleForTesting
-  LoadingCache<String, Path> getPathResolverCache() {
+  LoadingCache<String, AlluxioURI> getPathResolverCache() {
     return mPathResolverCache;
   }
 }

@@ -1,4 +1,15 @@
-package hcfsfuse.jnifuse.constants;
+/*
+ * The Alluxio Open Foundation licenses this work under the Apache License, version 2.0
+ * (the "License"). You may not use this work except in compliance with the License, which is
+ * available at www.apache.org/licenses/LICENSE-2.0
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied, as more fully set forth in the License.
+ *
+ * See the NOTICE file distributed with this work for information regarding copyright ownership.
+ */
+
+package alluxio.jnifuse.constants;
 
 public enum Errno {
   EPERM(1),
@@ -94,7 +105,8 @@ public enum Errno {
   static final class StringTable {
     public static final java.util.Map<Errno, String> descriptions = generateTable();
     public static java.util.Map<Errno, String> generateTable() {
-      java.util.Map<Errno, String> map = new java.util.EnumMap<Errno, String>(Errno.class);
+      java.util.Map<Errno, String> map = new java.util.EnumMap<Errno, String>(
+          Errno.class);
       map.put(EPERM, "Operation not permitted");
       map.put(ENOENT, "No such file or directory");
       map.put(ESRCH, "No such process");

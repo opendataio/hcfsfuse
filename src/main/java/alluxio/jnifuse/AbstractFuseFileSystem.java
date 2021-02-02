@@ -1,12 +1,20 @@
-package hcfsfuse.jnifuse;
+/*
+ * The Alluxio Open Foundation licenses this work under the Apache License, version 2.0
+ * (the "License"). You may not use this work except in compliance with the License, which is
+ * available at www.apache.org/licenses/LICENSE-2.0
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+ * either express or implied, as more fully set forth in the License.
+ *
+ * See the NOTICE file distributed with this work for information regarding copyright ownership.
+ */
 
-import alluxio.jnifuse.FuseFillDir;
-import alluxio.jnifuse.LibFuse;
-import hcfsfuse.jnifuse.struct.FileStat;
-import hcfsfuse.jnifuse.struct.FuseFileInfo;
-import hcfsfuse.jnifuse.struct.Statvfs;
-import hcfsfuse.jnifuse.utils.SecurityUtils;
+package alluxio.jnifuse;
 
+import alluxio.jnifuse.struct.FileStat;
+import alluxio.jnifuse.struct.FuseFileInfo;
+import alluxio.jnifuse.struct.Statvfs;
+import alluxio.jnifuse.utils.SecurityUtils;
 import alluxio.util.OSUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,8 +37,8 @@ public abstract class AbstractFuseFileSystem implements FuseFileSystem {
     System.loadLibrary("jnifuse");
   }
 
-  private static final Logger
-      LOG = LoggerFactory.getLogger(AbstractFuseFileSystem.class);
+  private static final Logger LOG = LoggerFactory.getLogger(
+      AbstractFuseFileSystem.class);
   // timeout to mount a JNI fuse file system in ms
   private static final int MOUNT_TIMEOUT_MS = 2000;
 
