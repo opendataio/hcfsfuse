@@ -1,6 +1,6 @@
 <FindBugsFilter>
   <Match>
-    <Package name="~net\.mbl\.demo\.proto.*"/>
+    <Package name="~hcfsfuse\.proto.*"/>
   </Match>
   <Match>
     <!--
@@ -54,7 +54,7 @@
   <Match>
     <!-- Avro generates redundant "implements" interface declarations -->
     <Or>
-      <Package name="~net[.]mbl[.]demo[.]*[.]proto"/>
+      <Package name="~hcfsfuse[.]*[.]proto"/>
     </Or>
   </Match>
 </FindBugsFilter>

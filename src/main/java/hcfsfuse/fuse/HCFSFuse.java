@@ -1,4 +1,4 @@
-package net.mbl.hcfsfuse;
+package hcfsfuse.fuse;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -46,10 +46,24 @@ public class HCFSFuse {
     }
 
     final FileSystem tfs = new Path(opts.getRoot()).getFileSystem(conf);
-    HCFSFuseFileSystem fs = new HCFSFuseFileSystem(tfs, opts, conf);
     final List<String> fuseOpts = opts.getFuseOpts();
-    try {
+    if (opts.isJniFuseEnable()) {
+      final HCFSJniFuseFileSystem fuseFs = new HCFSJniFuseFileSystem(tfs, opts, conf);
+      try {
+        LOG.info("Mounting HCFSJniFuseFileSystem: mount point=\"{}\", OPTIONS=\"{}\"",
+            opts.getMountPoint(), fuseOpts.toArray(new String[0]));
+        fuseFs.mount(true, opts.isDebug(), fuseOpts.toArray(new String[0]));
+      } catch (FuseException e) {
+        LOG.error("Failed to mount {}", opts.getMountPoint(), e);
+        // only try to umount file system when exception occurred.
+        // jni-fuse registers JVM shutdown hook to ensure fs.umount()
+        // will be executed when this process is exiting.
+        fuseFs.umount();
+      }
+    } else {
+      fuseOpts.add("-odirect_io");
       LOG.info("mounting to {}", opts.getMountPoint());
+<<<<<<< HEAD:src/main/java/net.mbl.hcfsfuse/HCFSFuse.java
       fs.mount(Paths.get(opts.getMountPoint()), true, opts.isDebug(),
               fuseOpts.toArray(new String[0]));
     } catch (FuseException e) {
@@ -60,6 +74,21 @@ public class HCFSFuse {
       fs.umount();
     } finally {
       tfs.close();
+=======
+      HCFSFuseFileSystem fs = new HCFSFuseFileSystem(tfs, opts, conf);
+      try {
+        fs.mount(Paths.get(opts.getMountPoint()), true, opts.isDebug(),
+            fuseOpts.toArray(new String[0]));
+      } catch (FuseException e) {
+        LOG.error("Failed to mount {}", opts.getMountPoint(), e);
+        // only try to umount file system when exception occurred.
+        // jnr-fuse registers JVM shutdown hook to ensure fs.umount()
+        // will be executed when this process is exiting.
+        fs.umount();
+      } finally {
+        tfs.close();
+      }
+>>>>>>> upstream/master:src/main/java/hcfsfuse/fuse/HCFSFuse.java
     }
   }
 
@@ -104,12 +133,18 @@ public class HCFSFuse {
         .desc("debug flag")
         .build();
 
+    final Option jniFuseOption = Option.builder("jniFuse")
+        .required(false)
+        .desc("use jnifuse flag")
+        .build();
+
     opts.addOption(configOpt);
     opts.addOption(mntPoint);
     opts.addOption(root);
     opts.addOption(help);
     opts.addOption(fuseOption);
     opts.addOption(debugOption);
+    opts.addOption(jniFuseOption);
 
     final CommandLineParser parser = new DefaultParser();
     try {
@@ -144,7 +179,12 @@ public class HCFSFuse {
       if (cli.hasOption("debug")) {
         fuseDebug = true;
       }
-      return new FuseOptions(mntPointValue, rootValue, fuseDebug, fuseOpts, configFiles);
+      boolean jniFuseEnable = false;
+      if (cli.hasOption("jniFuse")) {
+        jniFuseEnable = true;
+      }
+      return new FuseOptions(mntPointValue, rootValue, fuseDebug,
+          fuseOpts, configFiles, jniFuseEnable);
     } catch (ParseException e) {
       System.err.println("Error while parsing CLI: " + e.getMessage());
       final HelpFormatter fmt = new HelpFormatter();

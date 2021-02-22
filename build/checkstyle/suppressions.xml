@@ -8,4 +8,5 @@
     <!-- Suppresses files in the src/main folder. To be used for rules which only apply to test
          code. -->
     <suppress files="[\\/]src[\\/]main[\\/].*|[\\/]generated-sources[\\/].*" id="TestScope" />
+    <suppress files="alluxio[\\/].*\.java" checks="[a-zA-Z0-9]*"/>
 </suppressions>
