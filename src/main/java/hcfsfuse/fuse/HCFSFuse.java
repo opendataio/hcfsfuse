@@ -63,18 +63,6 @@ public class HCFSFuse {
     } else {
       fuseOpts.add("-odirect_io");
       LOG.info("mounting to {}", opts.getMountPoint());
-<<<<<<< HEAD:src/main/java/net.mbl.hcfsfuse/HCFSFuse.java
-      fs.mount(Paths.get(opts.getMountPoint()), true, opts.isDebug(),
-              fuseOpts.toArray(new String[0]));
-    } catch (FuseException e) {
-      LOG.error("Failed to mount {}", opts.getMountPoint(), e);
-      // only try to umount file system when exception occurred.
-      // jnr-fuse registers JVM shutdown hook to ensure fs.umount()
-      // will be executed when this process is exiting.
-      fs.umount();
-    } finally {
-      tfs.close();
-=======
       HCFSFuseFileSystem fs = new HCFSFuseFileSystem(tfs, opts, conf);
       try {
         fs.mount(Paths.get(opts.getMountPoint()), true, opts.isDebug(),
@@ -88,7 +76,6 @@ public class HCFSFuse {
       } finally {
         tfs.close();
       }
->>>>>>> upstream/master:src/main/java/hcfsfuse/fuse/HCFSFuse.java
     }
   }
 
