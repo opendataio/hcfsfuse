@@ -545,7 +545,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         mFileSystem.setOwner(uri, null, groupName);
       } else {
         LOG.info("Change owner of file {} to {}", path, userName);
-        mFileSystem.setOwner(uri, userName, null);
+        mFileSystem.setOwner(uri, userName, groupName);
       }
     } catch (Throwable t) {
       LOG.error("Failed to chown {} to uid {} and gid {}", path, uid, gid, t);
