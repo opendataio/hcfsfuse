@@ -293,11 +293,13 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     try {
       final byte[] dest = new byte[sz];
       synchronized (oe.getIn()) {
-        oe.getIn().seek(offset);
-        while (rd >= 0 && nread < size) {
-          rd = oe.getIn().read(dest, nread, sz - nread);
-          if (rd >= 0) {
-            nread += rd;
+        if (offset - oe.getIn().getPos() < oe.getIn().available()) {
+          oe.getIn().seek(offset);
+          while (rd >= 0 && nread < size) {
+            rd = oe.getIn().read(dest, nread, sz - nread);
+            if (rd >= 0) {
+              nread += rd;
+            }
           }
         }
       }
