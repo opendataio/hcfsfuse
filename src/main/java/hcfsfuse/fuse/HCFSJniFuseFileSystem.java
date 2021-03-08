@@ -282,11 +282,22 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   private int openInternal(String path, FuseFileInfo fi) {
     final Path uri = mPathResolverCache.getUnchecked(path);
+    final int flags = fi.flags.get();
+    LOG.trace("open({}, 0x{}) [target: {}]", path, Integer.toHexString(flags), uri);
     try {
       long fd = mNextOpenFileId.getAndIncrement();
-      FSDataInputStream is = mFileSystem.open(uri);
-      mOpenFileEntries.put(fd, is);
-      fi.fh.set(fd);
+      if ((flags & 0b11) != 0) {
+        FSDataOutputStream os =
+            mFileSystem.create(uri);
+        long fid = mNextOpenFileId.getAndIncrement();
+        mCreateFileEntries.put(fid, os);
+        fi.fh.set(fid);
+        setUserGroupIfNeeded(uri);
+      } else {
+        FSDataInputStream is = mFileSystem.open(uri);
+        mOpenFileEntries.put(fd, is);
+        fi.fh.set(fd);
+      }
       return 0;
     } catch (Throwable e) {
       LOG.error("Failed to open {}: ", path, e);
@@ -557,8 +568,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
 
   @Override
   public int truncate(String path, long size) {
-    LOG.error("Truncate is not supported {}", path);
-    return -ErrorCodes.EOPNOTSUPP();
+    return 0;
   }
 
   /**
