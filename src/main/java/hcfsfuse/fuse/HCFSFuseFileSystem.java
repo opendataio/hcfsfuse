@@ -138,9 +138,12 @@ public class HCFSFuseFileSystem extends FuseStubFS {
                 userName, groupName);
       } else if (userName.isEmpty()) {
         LOG.info("Change group of file {} to {}", path, groupName);
-        mFileSystem.setOwner(turi, userName, groupName);
+        mFileSystem.setOwner(turi, null, groupName);
+      } else if (groupName.isEmpty()) {
+        LOG.info("Change user of file {} to {}", path, userName);
+        mFileSystem.setOwner(turi, userName, null);
       } else {
-        LOG.info("Change owner of file {} to {}", path, userName);
+        LOG.info("Change owner of file {} to {}:{}", path, userName, groupName);
         mFileSystem.setOwner(turi, userName, groupName);
       }
     } catch (Throwable t) {
@@ -195,7 +198,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @Override
   public int readdir(String path, Pointer buff, FuseFillDir filter,
-                     @off_t long offset, FuseFileInfo fi) {
+      @off_t long offset, FuseFileInfo fi) {
     final Path turi = mPathResolverCache.getUnchecked(path);
     LOG.trace("readdir({}) [target: {}]", path, turi);
 
@@ -300,8 +303,8 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     fi.fh.set(fid);
 
     LOG.debug("Open: {} |ProcessId: {}|ThreadId: {}|fid: {}|is address: {}",
-            path,  HCFSFuseUtil.getProcessId(), HCFSFuseUtil.getThreadId(), fid,
-            System.identityHashCode(is));
+        path,  HCFSFuseUtil.getProcessId(), HCFSFuseUtil.getThreadId(), fid,
+        System.identityHashCode(is));
 
     return 0;
   }
@@ -320,7 +323,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @Override
   public int read(String path, Pointer buf, @size_t long size, @off_t long offset,
-                  FuseFileInfo fi) {
+      FuseFileInfo fi) {
 
     if (size > Integer.MAX_VALUE) {
       LOG.error("Cannot read more than Integer.MAX_VALUE");
