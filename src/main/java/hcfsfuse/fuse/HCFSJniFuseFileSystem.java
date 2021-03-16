@@ -543,8 +543,11 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       } else if (userName.isEmpty()) {
         LOG.info("Change group of file {} to {}", path, groupName);
         mFileSystem.setOwner(uri, null, groupName);
+      } else if (groupName.isEmpty()) {
+        LOG.info("Change user of file {} to {}", path, userName);
+        mFileSystem.setOwner(uri, userName, null);
       } else {
-        LOG.info("Change owner of file {} to {}", path, userName);
+        LOG.info("Change owner of file {} to {}:{}", path, userName, groupName);
         mFileSystem.setOwner(uri, userName, groupName);
       }
     } catch (Throwable t) {
