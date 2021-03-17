@@ -10,9 +10,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import jnr.ffi.Pointer;
+import jnr.ffi.types.gid_t;
 import jnr.ffi.types.mode_t;
 import jnr.ffi.types.off_t;
 import jnr.ffi.types.size_t;
+import jnr.ffi.types.uid_t;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -52,6 +54,11 @@ public class HCFSFuseFileSystem extends FuseStubFS {
    */
   @VisibleForTesting
   public static final int MAX_NAME_LENGTH = 255;
+  @VisibleForTesting
+  public static final long ID_NOT_SET_VALUE = -1;
+  @VisibleForTesting
+  public static final long ID_NOT_SET_VALUE_UNSIGNED = 4294967295L;
+
   private static final long UID = AlluxioFuseUtils.getUid(System.getProperty("user.name"));
   private static final long GID = AlluxioFuseUtils.getGid(System.getProperty("user.name"));
   private final Path mRootPath;
@@ -95,6 +102,55 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         .maximumSize(500)
         .build(new PathCacheLoader());
     mOpenFiles = new IndexedSet<>(ID_INDEX, PATH_INDEX);
+  }
+
+  @Override
+  public int chown(String path, @uid_t long uid, @gid_t long gid) {
+
+    try {
+      final Path turi = mPathResolverCache.getUnchecked(path);
+
+      String userName = "";
+      if (uid != ID_NOT_SET_VALUE && uid != ID_NOT_SET_VALUE_UNSIGNED) {
+        userName = AlluxioFuseUtils.getUserName(uid);
+        if (userName.isEmpty()) {
+          // This should never be reached
+          LOG.error("Failed to get user name from uid {}", uid);
+          return -ErrorCodes.EINVAL();
+        }
+      }
+
+      String groupName = "";
+      if (gid != ID_NOT_SET_VALUE && gid != ID_NOT_SET_VALUE_UNSIGNED) {
+        groupName = AlluxioFuseUtils.getGroupName(gid);
+        if (groupName.isEmpty()) {
+          // This should never be reached
+          LOG.error("Failed to get group name from gid {}", gid);
+          return -ErrorCodes.EINVAL();
+        }
+      } else if (!userName.isEmpty()) {
+        groupName = AlluxioFuseUtils.getGroupName(userName);
+      }
+
+      if (userName.isEmpty() && groupName.isEmpty()) {
+        // This should never be reached
+        LOG.info("Unable to change owner and group of file {} when uid is {} and gid is {}", path,
+                userName, groupName);
+      } else if (userName.isEmpty()) {
+        LOG.info("Change group of file {} to {}", path, groupName);
+        mFileSystem.setOwner(turi, null, groupName);
+      } else if (groupName.isEmpty()) {
+        LOG.info("Change user of file {} to {}", path, userName);
+        mFileSystem.setOwner(turi, userName, null);
+      } else {
+        LOG.info("Change owner of file {} to {}:{}", path, userName, groupName);
+        mFileSystem.setOwner(turi, userName, groupName);
+      }
+    } catch (Throwable t) {
+      LOG.error("Failed to chown {} to uid {} and gid {}", path, uid, gid, t);
+      return AlluxioFuseUtils.getErrorCode(t);
+    }
+    return 0;
   }
 
   @Override
@@ -247,8 +303,8 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     fi.fh.set(fid);
 
     LOG.debug("Open: {} |ProcessId: {}|ThreadId: {}|fid: {}|is address: {}",
-            path,  HCFSFuseUtil.getProcessId(), HCFSFuseUtil.getThreadId(), fid,
-            System.identityHashCode(is));
+        path,  HCFSFuseUtil.getProcessId(), HCFSFuseUtil.getThreadId(), fid,
+        System.identityHashCode(is));
 
     return 0;
   }
