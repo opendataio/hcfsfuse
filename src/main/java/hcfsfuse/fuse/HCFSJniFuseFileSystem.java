@@ -1,17 +1,17 @@
 package hcfsfuse.fuse;
 
 import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY;
-import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_TBDS;
-import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_TBDS_GROUP;
-import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_TBDS_USER;
+import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_CUSTOM;
+import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_CUSTOM_USER;
+import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_CUSTOM_GROUP;
+
+import hcfsfuse.fuse.auth.CustomAuthPolicy;
 
 import alluxio.fuse.AlluxioFuseUtils;
 import alluxio.jnifuse.AbstractFuseFileSystem;
 import alluxio.jnifuse.ErrorCodes;
 import alluxio.jnifuse.struct.FileStat;
-import alluxio.jnifuse.struct.FuseContext;
 import alluxio.jnifuse.struct.FuseFileInfo;
-
 import alluxio.jnifuse.FuseFillDir;
 import alluxio.resource.LockResource;
 
@@ -58,7 +58,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   private final LoadingCache<String, Long> mGidCache;
   private final AtomicLong mNextOpenFileId = new AtomicLong(0);
   private final String mFsName;
-  private final String authPolicy;
+  private final String authPolicyConf;
 
   private static final int LOCK_SIZE = 2048;
   /** A readwrite lock pool to guard individual files based on striping. */
@@ -67,6 +67,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   private final Map<Long, FSDataInputStream> mOpenFileEntries = new ConcurrentHashMap<>();
   private final Map<Long, FSDataOutputStream> mCreateFileEntries = new ConcurrentHashMap<>();
   private final boolean mIsUserGroupTranslation;
+  CustomAuthPolicy authPolicy = new CustomAuthPolicy();
 
   // To make test build
   @VisibleForTesting
@@ -135,50 +136,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
           }
         });
     mIsUserGroupTranslation = true;
-    authPolicy = mConf.get(AUTH_POLICY, "default");
-  }
-
-  /**
-   * use for tbds auth.
-   */
-  private void setUserGroupIfNeeded(Path uri, String uname, String gname) throws Exception {
-    if (uname == null || gname == null) {
-      LOG.error("if enable tbds auth policy, user name or group name can not be null");
-      throw new Exception("if enable tbds auth policy, user name or group name can not be null");
-    }
-    LOG.debug("Set attributes of path {} to {}, {}", uri, uname, gname);
-    mFileSystem.setOwner(uri, uname, gname);
-  }
-
-  private void setUserGroupIfNeeded(Path uri) throws Exception {
-    FuseContext fc = getContext();
-    long uid = fc.uid.get();
-    long gid = fc.gid.get();
-
-    String gname = "";
-    String uname = "";
-    if (gid != DEFAULT_GID) {
-      String groupName = AlluxioFuseUtils.getGroupName(gid);
-      if (groupName.isEmpty()) {
-        // This should never be reached since input gid is always valid
-        LOG.error("Failed to get group name from gid {}, fallback to {}.", gid, GROUP_NAME);
-        groupName = GROUP_NAME;
-      }
-      gname = groupName;
-    }
-    if (uid != DEFAULT_UID) {
-      String userName = AlluxioFuseUtils.getUserName(uid);
-      if (userName.isEmpty()) {
-        // This should never be reached since input uid is always valid
-        LOG.error("Failed to get user name from uid {}, fallback to {}", uid, USER_NAME);
-        userName = USER_NAME;
-      }
-      uname = userName;
-    }
-    if (gid != DEFAULT_GID || uid != DEFAULT_UID) {
-      LOG.debug("Set attributes of path {} to {}, {}", uri, gid, uid);
-      mFileSystem.setOwner(uri, uname, gname);
-    }
+    authPolicyConf = mConf.get(AUTH_POLICY, "default");
   }
 
   @Override
@@ -201,11 +159,11 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       long fid = mNextOpenFileId.getAndIncrement();
       mCreateFileEntries.put(fid, os);
       fi.fh.set(fid);
-      if (authPolicy.equalsIgnoreCase(AUTH_POLICY_TBDS)) {
-        setUserGroupIfNeeded(
-            uri, mConf.get(AUTH_POLICY_TBDS_USER), mConf.get(AUTH_POLICY_TBDS_GROUP));
+      if (authPolicyConf.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
+        authPolicy.setUserGroupIfNeeded(uri, mFileSystem,
+            mConf.get(AUTH_POLICY_CUSTOM_USER), mConf.get(AUTH_POLICY_CUSTOM_GROUP));
       } else {
-        setUserGroupIfNeeded(uri);
+        authPolicy.setUserGroupIfNeeded(uri, mFileSystem, getContext());
       }
     } catch (Throwable e) {
       LOG.error("Failed to create {}: ", path, e);
@@ -316,11 +274,11 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         long fid = mNextOpenFileId.getAndIncrement();
         mCreateFileEntries.put(fid, os);
         fi.fh.set(fid);
-        if (authPolicy.equalsIgnoreCase(AUTH_POLICY_TBDS)) {
-          setUserGroupIfNeeded(
-              uri, mConf.get(AUTH_POLICY_TBDS_USER), mConf.get(AUTH_POLICY_TBDS_GROUP));
+        if (authPolicyConf.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
+          authPolicy.setUserGroupIfNeeded(uri, mFileSystem,
+              mConf.get(AUTH_POLICY_CUSTOM_USER), mConf.get(AUTH_POLICY_CUSTOM_GROUP));
         } else {
-          setUserGroupIfNeeded(uri);
+          authPolicy.setUserGroupIfNeeded(uri, mFileSystem, getContext());
         }
       } else {
         FSDataInputStream is = mFileSystem.open(uri);
@@ -460,11 +418,11 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
     }
     try {
       mFileSystem.mkdirs(uri, new FsPermission((int) mode));
-      if (authPolicy.equalsIgnoreCase(AUTH_POLICY_TBDS)) {
-        setUserGroupIfNeeded(
-            uri, mConf.get(AUTH_POLICY_TBDS_USER), mConf.get(AUTH_POLICY_TBDS_GROUP));
+      if (authPolicyConf.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
+        authPolicy.setUserGroupIfNeeded(uri, mFileSystem,
+            mConf.get(AUTH_POLICY_CUSTOM_USER), mConf.get(AUTH_POLICY_CUSTOM_GROUP));
       } else {
-        setUserGroupIfNeeded(uri);
+        authPolicy.setUserGroupIfNeeded(uri, mFileSystem, getContext());
       }
     } catch (Throwable e) {
       LOG.error("Failed to mkdir {}: ", path, e);
