@@ -1,11 +1,7 @@
 package hcfsfuse.fuse;
 
-import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY;
-import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_CUSTOM;
-import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_CUSTOM_USER;
-import static hcfsfuse.fuse.AuthOptions.AUTH_POLICY_CUSTOM_GROUP;
-
-import hcfsfuse.fuse.auth.CustomAuthPolicy;
+import hcfsfuse.fuse.auth.AuthPolicy;
+import hcfsfuse.fuse.auth.AuthPolicyFactory;
 
 import alluxio.fuse.AlluxioFuseUtils;
 import alluxio.jnifuse.AbstractFuseFileSystem;
@@ -58,7 +54,6 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   private final LoadingCache<String, Long> mGidCache;
   private final AtomicLong mNextOpenFileId = new AtomicLong(0);
   private final String mFsName;
-  private final String authPolicyConf;
 
   private static final int LOCK_SIZE = 2048;
   /** A readwrite lock pool to guard individual files based on striping. */
@@ -67,7 +62,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   private final Map<Long, FSDataInputStream> mOpenFileEntries = new ConcurrentHashMap<>();
   private final Map<Long, FSDataOutputStream> mCreateFileEntries = new ConcurrentHashMap<>();
   private final boolean mIsUserGroupTranslation;
-  CustomAuthPolicy authPolicy = new CustomAuthPolicy();
+  private final AuthPolicy mAuthPolicy;
 
   // To make test build
   @VisibleForTesting
@@ -136,7 +131,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
           }
         });
     mIsUserGroupTranslation = true;
-    authPolicyConf = mConf.get(AUTH_POLICY, "default");
+    mAuthPolicy = AuthPolicyFactory.create(mFileSystem, conf, this);
   }
 
   @Override
@@ -159,12 +154,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       long fid = mNextOpenFileId.getAndIncrement();
       mCreateFileEntries.put(fid, os);
       fi.fh.set(fid);
-      if (authPolicyConf.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
-        authPolicy.setUserGroupIfNeeded(uri, mFileSystem,
-            mConf.get(AUTH_POLICY_CUSTOM_USER), mConf.get(AUTH_POLICY_CUSTOM_GROUP));
-      } else {
-        authPolicy.setUserGroupIfNeeded(uri, mFileSystem, getContext());
-      }
+      mAuthPolicy.setUserGroupIfNeeded(uri);
     } catch (Throwable e) {
       LOG.error("Failed to create {}: ", path, e);
       return -ErrorCodes.EIO();
@@ -274,12 +264,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         long fid = mNextOpenFileId.getAndIncrement();
         mCreateFileEntries.put(fid, os);
         fi.fh.set(fid);
-        if (authPolicyConf.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
-          authPolicy.setUserGroupIfNeeded(uri, mFileSystem,
-              mConf.get(AUTH_POLICY_CUSTOM_USER), mConf.get(AUTH_POLICY_CUSTOM_GROUP));
-        } else {
-          authPolicy.setUserGroupIfNeeded(uri, mFileSystem, getContext());
-        }
+        mAuthPolicy.setUserGroupIfNeeded(uri);
       } else {
         FSDataInputStream is = mFileSystem.open(uri);
         mOpenFileEntries.put(fd, is);
@@ -418,12 +403,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
     }
     try {
       mFileSystem.mkdirs(uri, new FsPermission((int) mode));
-      if (authPolicyConf.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
-        authPolicy.setUserGroupIfNeeded(uri, mFileSystem,
-            mConf.get(AUTH_POLICY_CUSTOM_USER), mConf.get(AUTH_POLICY_CUSTOM_GROUP));
-      } else {
-        authPolicy.setUserGroupIfNeeded(uri, mFileSystem, getContext());
-      }
+      mAuthPolicy.setUserGroupIfNeeded(uri);
     } catch (Throwable e) {
       LOG.error("Failed to mkdir {}: ", path, e);
       return -ErrorCodes.EIO();

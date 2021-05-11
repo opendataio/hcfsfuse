@@ -1,12 +1,16 @@
 package hcfsfuse.fuse.auth;
 
 import alluxio.fuse.AlluxioFuseUtils;
+import alluxio.jnifuse.FuseFileSystem;
 import alluxio.jnifuse.struct.FuseContext;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 /**
  * Default Auth Policy.
@@ -18,9 +22,23 @@ public class DefaultAuthPolicy implements AuthPolicy {
   private static final long DEFAULT_UID = AlluxioFuseUtils.getUid(USER_NAME);
   private static final long DEFAULT_GID = AlluxioFuseUtils.getGid(GROUP_NAME);
 
+  private final FileSystem mFileSystem;
+  private final FuseFileSystem mFuseFileSystem;
+
+  /**
+   * @param fileSystem - FileSystem
+   * @param conf - Configuration
+   * @param fuseFileSystem - FuseFileSystem
+   */
+  public DefaultAuthPolicy(
+      FileSystem fileSystem, Configuration conf, FuseFileSystem fuseFileSystem) {
+    mFileSystem = fileSystem;
+    mFuseFileSystem = fuseFileSystem;
+  }
+
   @Override
-  public void setUserGroupIfNeeded(Path uri, FileSystem mFileSystem, FuseContext fc)
-      throws Exception {
+  public void setUserGroupIfNeeded(Path uri) throws IOException {
+    FuseContext fc = mFuseFileSystem.getContext();
     long uid = fc.uid.get();
     long gid = fc.gid.get();
 
