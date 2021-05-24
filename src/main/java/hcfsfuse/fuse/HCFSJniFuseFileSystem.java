@@ -1,12 +1,13 @@
 package hcfsfuse.fuse;
 
+import hcfsfuse.fuse.auth.AuthPolicy;
+import hcfsfuse.fuse.auth.AuthPolicyFactory;
+
 import alluxio.fuse.AlluxioFuseUtils;
 import alluxio.jnifuse.AbstractFuseFileSystem;
 import alluxio.jnifuse.ErrorCodes;
 import alluxio.jnifuse.struct.FileStat;
-import alluxio.jnifuse.struct.FuseContext;
 import alluxio.jnifuse.struct.FuseFileInfo;
-
 import alluxio.jnifuse.FuseFillDir;
 import alluxio.resource.LockResource;
 
@@ -61,6 +62,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
   private final Map<Long, FSDataInputStream> mOpenFileEntries = new ConcurrentHashMap<>();
   private final Map<Long, FSDataOutputStream> mCreateFileEntries = new ConcurrentHashMap<>();
   private final boolean mIsUserGroupTranslation;
+  private final AuthPolicy mAuthPolicy;
 
   // To make test build
   @VisibleForTesting
@@ -129,37 +131,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
           }
         });
     mIsUserGroupTranslation = true;
-  }
-
-  private void setUserGroupIfNeeded(Path uri) throws Exception {
-    FuseContext fc = getContext();
-    long uid = fc.uid.get();
-    long gid = fc.gid.get();
-
-    String gname = "";
-    String uname = "";
-    if (gid != DEFAULT_GID) {
-      String groupName = AlluxioFuseUtils.getGroupName(gid);
-      if (groupName.isEmpty()) {
-        // This should never be reached since input gid is always valid
-        LOG.error("Failed to get group name from gid {}, fallback to {}.", gid, GROUP_NAME);
-        groupName = GROUP_NAME;
-      }
-      gname = groupName;
-    }
-    if (uid != DEFAULT_UID) {
-      String userName = AlluxioFuseUtils.getUserName(uid);
-      if (userName.isEmpty()) {
-        // This should never be reached since input uid is always valid
-        LOG.error("Failed to get user name from uid {}, fallback to {}", uid, USER_NAME);
-        userName = USER_NAME;
-      }
-      uname = userName;
-    }
-    if (gid != DEFAULT_GID || uid != DEFAULT_UID) {
-      LOG.debug("Set attributes of path {} to {}, {}", uri, gid, uid);
-      mFileSystem.setOwner(uri, uname, gname);
-    }
+    mAuthPolicy = AuthPolicyFactory.create(mFileSystem, conf, this);
   }
 
   @Override
@@ -182,7 +154,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
       long fid = mNextOpenFileId.getAndIncrement();
       mCreateFileEntries.put(fid, os);
       fi.fh.set(fid);
-      setUserGroupIfNeeded(uri);
+      mAuthPolicy.setUserGroupIfNeeded(uri);
     } catch (Throwable e) {
       LOG.error("Failed to create {}: ", path, e);
       return -ErrorCodes.EIO();
@@ -292,7 +264,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         long fid = mNextOpenFileId.getAndIncrement();
         mCreateFileEntries.put(fid, os);
         fi.fh.set(fid);
-        setUserGroupIfNeeded(uri);
+        mAuthPolicy.setUserGroupIfNeeded(uri);
       } else {
         FSDataInputStream is = mFileSystem.open(uri);
         mOpenFileEntries.put(fd, is);
@@ -431,7 +403,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
     }
     try {
       mFileSystem.mkdirs(uri, new FsPermission((int) mode));
-      setUserGroupIfNeeded(uri);
+      mAuthPolicy.setUserGroupIfNeeded(uri);
     } catch (Throwable e) {
       LOG.error("Failed to mkdir {}: ", path, e);
       return -ErrorCodes.EIO();
