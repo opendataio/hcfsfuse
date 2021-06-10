@@ -29,7 +29,7 @@
     <ozone.version>1.1.0</ozone.version>
     <!-- Test package version -->
     <version.mock>1.38</version.mock>
-    <zookeeper.version>3.4.13</zookeeper.version>
+    <zookeeper.version>3.4.14</zookeeper.version>
     <odfs.version>1.0.4</odfs.version>
   </properties>
 
