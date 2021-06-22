@@ -1,5 +1,8 @@
 package hcfsfuse.fuse;
 
+import static hcfsfuse.fuse.AuthConstants.AUTH_POLICY;
+import static hcfsfuse.fuse.AuthConstants.AUTH_POLICY_CUSTOM;
+
 import hcfsfuse.fuse.auth.AuthPolicy;
 import hcfsfuse.fuse.auth.AuthPolicyFactory;
 
@@ -99,6 +102,7 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
     mFileSystem = fs;
     mConf = conf;
     mRootPath = new Path(fuseOptions.getRoot());
+    String authPolicy = conf.get(AUTH_POLICY, "default");
     mPathResolverCache = CacheBuilder.newBuilder()
         .maximumSize(500)
         .build(new CacheLoader<String, Path>() {
@@ -119,7 +123,11 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         .build(new CacheLoader<String, Long>() {
           @Override
           public Long load(String userName) {
-            return AlluxioFuseUtils.getUid(userName);
+            if (authPolicy.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
+              return DEFAULT_UID;
+            } else {
+              return AlluxioFuseUtils.getUid(userName);
+            }
           }
         });
     mGidCache = CacheBuilder.newBuilder()
@@ -127,7 +135,11 @@ public final class HCFSJniFuseFileSystem extends AbstractFuseFileSystem {
         .build(new CacheLoader<String, Long>() {
           @Override
           public Long load(String groupName) {
-            return AlluxioFuseUtils.getGidFromGroupName(groupName);
+            if (authPolicy.equalsIgnoreCase(AUTH_POLICY_CUSTOM)) {
+              return DEFAULT_GID;
+            } else {
+              return AlluxioFuseUtils.getGidFromGroupName(groupName);
+            }
           }
         });
     mIsUserGroupTranslation = true;
