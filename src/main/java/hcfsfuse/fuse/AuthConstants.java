@@ -8,4 +8,5 @@ public class AuthConstants {
   public static final String AUTH_POLICY_CUSTOM = "custom";
   public static final String AUTH_POLICY_CUSTOM_USER = "hcfs.fuse.auth.custom.user";
   public static final String AUTH_POLICY_CUSTOM_GROUP = "hcfs.fuse.auth.custom.group";
+  public static final String AUTH_POLICY_IGNORE_MKDIR_GROUP = "hcfs.fuse.ignore.mkdir.group";
 }

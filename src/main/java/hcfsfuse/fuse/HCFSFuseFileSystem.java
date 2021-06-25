@@ -67,6 +67,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   private final IndexedSet<OpenFileEntry<FSDataInputStream, FSDataOutputStream>> mOpenFiles;
   private AtomicLong mNextOpenFileId = new AtomicLong(0);
   private final LoadingCache<String, Path> mPathResolverCache;
+  private final Configuration mConfiguration;
 
   // Open file managements
   private static final IndexDefinition<OpenFileEntry<FSDataInputStream, FSDataOutputStream>, Long>
@@ -102,6 +103,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         .maximumSize(500)
         .build(new PathCacheLoader());
     mOpenFiles = new IndexedSet<>(ID_INDEX, PATH_INDEX);
+    mConfiguration = conf;
   }
 
   @Override
@@ -255,7 +257,15 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         return -ErrorCodes.EFAULT();
       }
       mFileSystem.mkdirs(turi, new FsPermission((int) mode));
-      mFileSystem.setOwner(turi, userName, groupName);
+      // For Tencent ODFS, the groupName should be sent as null temporarily
+      // Todo
+      //  need to find out the reason with the policy odfs uses
+      if (mConfiguration.getBoolean(AuthConstants.AUTH_POLICY_IGNORE_MKDIR_GROUP,
+          false)) {
+        mFileSystem.setOwner(turi, userName, "null");
+      } else {
+        mFileSystem.setOwner(turi, userName, groupName);
+      }
     } catch (FileAlreadyExistsException e) {
       LOG.debug("Failed to create directory {}, directory already exists", path);
       return -ErrorCodes.EEXIST();
