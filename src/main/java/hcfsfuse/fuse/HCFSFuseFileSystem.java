@@ -262,7 +262,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       //  need to find out the reason with the policy odfs uses
       if (mConfiguration.getBoolean(AuthConstants.AUTH_POLICY_IGNORE_MKDIR_GROUP,
           false)) {
-        mFileSystem.setOwner(turi, userName, "null");
+        mFileSystem.setOwner(turi, userName, null);
       } else {
         mFileSystem.setOwner(turi, userName, groupName);
       }
