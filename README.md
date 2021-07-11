@@ -22,7 +22,7 @@ If you want to specify the version of alluxio, hadoop or ozone, reference the fo
 # how to run
 
 ```bash
-$ java -jar target/hcfsfuse-1.0.0-SNAPSHOT-jar-with-dependencies.jar -c core-site.xml -c another-site.xml -m /Users/mbl/fusefs -r file:///tmp/
+$ java -Dlog4j.configuration=file:<LOG4j_FILE_PATH> -jar target/hcfsfuse-1.0.0-SNAPSHOT-jar-with-dependencies.jar -c core-site.xml -c another-site.xml -m /Users/mbl/fusefs -r file:///tmp/
 ```
 
 Then, you can ls, touch, cp, rm, cat file or directory under `/Users/mbl/fusefs`.
