@@ -44,7 +44,6 @@ public class HCFSFuse {
     for (String confPath : opts.getConfPaths()) {
       conf.addResource(new Path(confPath));
     }
-
     final FileSystem tfs = new Path(opts.getRoot()).getFileSystem(conf);
     final List<String> fuseOpts = opts.getFuseOpts();
     if (opts.isJniFuseEnable()) {
