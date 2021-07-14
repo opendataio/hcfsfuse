@@ -177,8 +177,18 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       stat.st_ctim.tv_nsec.set(ctime_nsec);
       stat.st_mtim.tv_sec.set(ctime_sec);
       stat.st_mtim.tv_nsec.set(ctime_nsec);
-      stat.st_uid.set(AlluxioFuseUtils.getUid(status.getOwner()));
-      stat.st_gid.set(AlluxioFuseUtils.getGidFromGroupName(status.getGroup()));
+      Long stUid = AlluxioFuseUtils.getUid(status.getOwner());
+      Long stGid = AlluxioFuseUtils.getGidFromGroupName(status.getGroup());
+      if (stUid == -1) {
+        stat.st_uid.set(UID);
+      } else {
+        stat.st_uid.set(stUid);
+      }
+      if (stGid == -1) {
+        stat.st_gid.set(GID);
+      } else {
+        stat.st_gid.set(stGid);
+      }
       stat.st_nlink.set(1);
     } catch (IOException e) {
       LOG.debug("Failed to get info of {}, path does not exist or is invalid", path);
