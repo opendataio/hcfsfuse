@@ -1,7 +1,7 @@
 package hcfsfuse.fuse.auth;
 
-import static hcfsfuse.fuse.AuthConstants.AUTH_POLICY_CUSTOM_GROUP;
-import static hcfsfuse.fuse.AuthConstants.AUTH_POLICY_CUSTOM_USER;
+import static hcfsfuse.fuse.Constants.AUTH_POLICY_CUSTOM_GROUP;
+import static hcfsfuse.fuse.Constants.AUTH_POLICY_CUSTOM_USER;
 
 import alluxio.jnifuse.FuseFileSystem;
 import org.apache.hadoop.conf.Configuration;

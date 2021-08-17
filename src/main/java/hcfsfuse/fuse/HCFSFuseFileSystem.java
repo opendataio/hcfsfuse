@@ -68,6 +68,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
   private AtomicLong mNextOpenFileId = new AtomicLong(0);
   private final LoadingCache<String, Path> mPathResolverCache;
   private final Configuration mConfiguration;
+  private final int openoncurrent;
 
   // Open file managements
   private static final IndexDefinition<OpenFileEntry<FSDataInputStream, FSDataOutputStream>, Long>
@@ -104,6 +105,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         .build(new PathCacheLoader());
     mOpenFiles = new IndexedSet<>(ID_INDEX, PATH_INDEX);
     mConfiguration = conf;
+    openoncurrent = mConfiguration.getInt("hcfs.fuse.jnr.open.file.concurrent", 100);
   }
 
   @Override
@@ -270,7 +272,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
       // For Tencent ODFS, the groupName should be sent as null temporarily
       // Todo
       //  need to find out the reason with the policy odfs uses
-      if (mConfiguration.getBoolean(AuthConstants.AUTH_POLICY_IGNORE_MKDIR_GROUP,
+      if (mConfiguration.getBoolean(Constants.AUTH_POLICY_IGNORE_MKDIR_GROUP,
           false)) {
         mFileSystem.setOwner(turi, userName, null);
       } else {
@@ -300,6 +302,13 @@ public class HCFSFuseFileSystem extends FuseStubFS {
     if (mOpenFiles.size() >= MAX_OPEN_FILES) {
       LOG.error("Cannot open {}: too many open files (MAX_OPEN_FILES: {})", path, MAX_OPEN_FILES);
       return ErrorCodes.EMFILE();
+    }
+    while (mOpenFiles.size() >= openoncurrent) {
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
     }
     FSDataInputStream is;
     FSDataOutputStream out;

@@ -1,7 +1,7 @@
 package hcfsfuse.fuse;
 
-import static hcfsfuse.fuse.AuthConstants.AUTH_POLICY;
-import static hcfsfuse.fuse.AuthConstants.AUTH_POLICY_CUSTOM;
+import static hcfsfuse.fuse.Constants.AUTH_POLICY;
+import static hcfsfuse.fuse.Constants.AUTH_POLICY_CUSTOM;
 
 import hcfsfuse.fuse.auth.AuthPolicy;
 import hcfsfuse.fuse.auth.AuthPolicyFactory;
