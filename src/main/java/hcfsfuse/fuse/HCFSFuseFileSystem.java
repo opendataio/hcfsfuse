@@ -1,5 +1,7 @@
 package hcfsfuse.fuse;
 
+import static hcfsfuse.fuse.Constants.JNR_OPEN_FILE_CONCURRENT;
+
 import alluxio.collections.IndexDefinition;
 import alluxio.collections.IndexedSet;
 import alluxio.fuse.AlluxioFuseUtils;
@@ -105,7 +107,7 @@ public class HCFSFuseFileSystem extends FuseStubFS {
         .build(new PathCacheLoader());
     mOpenFiles = new IndexedSet<>(ID_INDEX, PATH_INDEX);
     mConfiguration = conf;
-    openoncurrent = mConfiguration.getInt("hcfs.fuse.jnr.open.file.concurrent", 100);
+    openoncurrent = mConfiguration.getInt(JNR_OPEN_FILE_CONCURRENT, MAX_OPEN_FILES);
   }
 
   @Override
