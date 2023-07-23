@@ -24,7 +24,7 @@
     <maven-jar-plugin.version>2.5</maven-jar-plugin.version>
     <log4j.version>2.5</log4j.version>
 
-    <alluxio.version>2.6.1</alluxio.version>
+    <alluxio.version>2.7.3</alluxio.version>
     <!-- for tbds
     <hadoop.version>3.2.1-TBDS-SNAPSHOT</hadoop.version>-->
     <!--for tq hadoop -->
