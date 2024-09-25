@@ -28,7 +28,7 @@
     <!-- for tbds
     <hadoop.version>3.2.1-TBDS-SNAPSHOT</hadoop.version>-->
     <!--for tq hadoop -->
-    <hadoop.version>3.2.1</hadoop.version>
+    <hadoop.version>3.4.0</hadoop.version>
     <ozone.version>1.2.0</ozone.version>
     <!-- Test package version 1.2.0-tq-0.4.0 hdds-common-1.2.0-SNAPSHOT.jar-->
     <!-- Test package version -->
